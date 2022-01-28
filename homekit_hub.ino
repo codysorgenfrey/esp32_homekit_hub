@@ -15,7 +15,6 @@ int statusBlinkPattern[7] = {
     1,  // no wifi
     2,  // No OTA
     3,  // No Homkit
-    4,  // no heat pump
     3   // OTA progress
 };
 int statusPatternRate[7] = {
@@ -24,7 +23,6 @@ int statusPatternRate[7] = {
     1000, // no wifi
     1000, // No OTA
     1000, // No homekit
-    1000, // no heat pump
     2000  // OTA progress
 };
 unsigned long lastBlinkMs = 0;
@@ -69,12 +67,12 @@ void setup()
             setup();
         });
 
-        boardStatus = wm.autoConnect(HP_UNIQUE_NAME) ? STATUS_NO_OTA : STATUS_NO_WIFI;
+        boardStatus = wm.autoConnect(HK_UNIQUE_NAME) ? STATUS_NO_OTA : STATUS_NO_WIFI;
     }
     
     if (boardStatus == STATUS_NO_OTA) {
         // Connect OTA
-        ArduinoOTA.setHostname(HP_UNIQUE_NAME);
+        ArduinoOTA.setHostname(HK_UNIQUE_NAME);
         ArduinoOTA.setPassword(OTA_PASS);
         ArduinoOTA.setRebootOnSuccess(true);
         ArduinoOTA.onStart([](){ 
@@ -100,6 +98,9 @@ void setup()
         // Connect to Homekit
         boardStatus = STATUS_NO_HOMEKIT;
         arduino_homekit_setup(&config);
+        homekit_server_reset();
+
+        boardStatus = STATUS_OK;
     }
 }
 

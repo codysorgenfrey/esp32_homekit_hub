@@ -9,21 +9,14 @@
 #define LED_ON LOW
 #define LED_OFF HIGH
 
-// Heat pump stuff
-#define HP_MANUFACTURER "Mitsubishi-Electric"
-#define HP_NAME "Split-System-Heat-Pump"
-#define HP_MODEL "MSZ-GL12NA"
-// #define HP_SERIALNUM "88N11458" // Andy's room
-// #define HP_SERIALNUM "88N11476" // Dining room
-#define HP_SERIALNUM "88N11479" // Livng room
-// #define HP_SERIALNUM "88N11426" // Master bed room
-#define HP_UNIQUE_NAME HP_NAME "-" HP_SERIALNUM
-#define HP_DEFAULT_HEAT_THRESH 18.8889 // 66 Deg F
-#define HP_DEFAULT_COOL_THRESH 23.3333 // 74 Deg F
-
 // Homekit stuff
-#define HK_DEBUG false
-#define SKETCH_VER "0.0.1"
+#define HK_DEBUG true
+#define HK_MANUFACTURER "KeeYees"
+#define HK_NAME "Smart Home Hub"
+#define HK_MODEL "Node MCU 1.0 ESP-12E"
+#define HK_SERIALNUM "12345"
+#define HK_UNIQUE_NAME HK_NAME "-" HK_SERIALNUM
+#define HK_SKETCH_VER "0.0.1"
 
 // State handling
 #define STATUS_ERROR 0
