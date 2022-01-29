@@ -2,6 +2,7 @@
 #include <arduino_homekit_server.h> // need to disable logging in homekit_debug.h
 #include <ArduinoOTA.h>
 #include <WiFiManager.h>
+#include "wemoswitch.h"
 
 extern "C" homekit_server_config_t config;
 
@@ -98,9 +99,9 @@ void setup()
         // Connect to Homekit
         boardStatus = STATUS_NO_HOMEKIT;
         arduino_homekit_setup(&config);
-        homekit_server_reset();
 
-        boardStatus = STATUS_OK;
+        // init WeMo switch
+        boardStatus = initWemoSwitch() ? STATUS_OK : STATUS_ERROR;
     }
 }
 
