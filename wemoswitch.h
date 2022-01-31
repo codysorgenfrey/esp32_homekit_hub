@@ -5,7 +5,7 @@
 #include <homekit/characteristics.h>
 #include <ESP8266HTTPClient.h>
 
-extern "C" homekit_characteristic_t wemo_on;
+extern "C" homekit_characteristic_t wemoOn;
 
 void setSwitch(const homekit_value_t value) {
     // tell switch what homekit says
@@ -32,7 +32,7 @@ void setSwitch(const homekit_value_t value) {
             #if HK_DEBUG
                 Serial.println("Wemo switch on.");
             #endif
-            wemo_on.value = value;
+            wemoOn.value = value;
         } else {
             #if HK_DEBUG
                 Serial.println("Switch responded not ok.");
@@ -74,12 +74,12 @@ homekit_value_t getSwitch() {
                 #if HK_DEBUG
                     Serial.println("Wemo switch on.");
                 #endif
-                wemo_on.value.bool_value = true;
+                wemoOn.value.bool_value = true;
             } else {
                 #if HK_DEBUG
                     Serial.println("Wemo switch off.");
                 #endif
-                wemo_on.value.bool_value = false;
+                wemoOn.value.bool_value = false;
             }
         } else {
             #if HK_DEBUG
@@ -95,12 +95,12 @@ homekit_value_t getSwitch() {
     http.end(); // these might kill the WiFi... we'll see
     client.stop();
 
-    return wemo_on.value;
+    return wemoOn.value;
 }
 
 bool initWemoSwitch() {
-    wemo_on.setter = setSwitch;
-    wemo_on.getter = getSwitch;
+    wemoOn.setter = setSwitch;
+    wemoOn.getter = getSwitch;
 
     return true;
 }
