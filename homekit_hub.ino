@@ -96,12 +96,14 @@ void setup()
         });
         ArduinoOTA.begin();
         
-        // Connect to Homekit
-        boardStatus = STATUS_NO_HOMEKIT;
-        arduino_homekit_setup(&config);
-
         // init WeMo switch
-        boardStatus = initWemoSwitch() ? STATUS_OK : STATUS_ERROR;
+        boardStatus = initWemoSwitch() ? STATUS_NO_HOMEKIT : STATUS_ERROR;
+
+        // Connect to Homekit
+        if (boardStatus != STATUS_ERROR) {
+            arduino_homekit_setup(&config);
+            boardStatus = STATUS_OK;
+        }
     }
 }
 
