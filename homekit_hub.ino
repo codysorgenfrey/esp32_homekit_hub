@@ -2,9 +2,9 @@
 #include <arduino_homekit_server.h> // need to disable logging in homekit_debug.h
 #include <ArduinoOTA.h>
 #include <WiFiManager.h>
-#include "wemoswitch.h"
-#include "simpliSafe.h"
-#include "garageDoor.h"
+#include "switchAccessory.h"
+#include "securitySystemAccessory.h"
+#include "garageDoorAccessory.h"
 
 extern "C" homekit_server_config_t config;
 
@@ -99,17 +99,17 @@ void setup()
         ArduinoOTA.begin();
         
         // init WeMo switch
-        boardStatus = initWemoSwitch() ? STATUS_NO_HOMEKIT : STATUS_ERROR;
+        boardStatus = initSwitchAccessory() ? STATUS_NO_HOMEKIT : STATUS_ERROR;
 
         if (!boardStatus == STATUS_ERROR)
-            boardStatus = initSimpliSafe() ? STATUS_NO_HOMEKIT : STATUS_ERROR;
+            boardStatus = initSecuritySystemAccessory() ? STATUS_NO_HOMEKIT : STATUS_ERROR;
 
         if (!boardStatus == STATUS_ERROR)
-            boardStatus = initGarageDoor() ? STATUS_NO_HOMEKIT : STATUS_ERROR;
+            boardStatus = initGarageDoorAccessory() ? STATUS_NO_HOMEKIT : STATUS_ERROR;
 
         // Connect to Homekit
         if (boardStatus != STATUS_ERROR) {
-            homekit_server_reset();
+            // homekit_server_reset();
             arduino_homekit_setup(&config);
             boardStatus = STATUS_OK;
         }

@@ -7,8 +7,8 @@ void my_accessory_identify(homekit_value_t _value) {
 }
 
 // WeMo switch characteristics
-homekit_characteristic_t wemoOn = HOMEKIT_CHARACTERISTIC_(ON, false);
-homekit_characteristic_t wemoName = HOMEKIT_CHARACTERISTIC_(NAME, "WeMo Switch");
+homekit_characteristic_t switchOn = HOMEKIT_CHARACTERISTIC_(ON, false);
+homekit_characteristic_t switchName = HOMEKIT_CHARACTERISTIC_(NAME, "WeMo Switch");
 
 // SimpliSafe characteristics
 homekit_characteristic_t ssCurState = HOMEKIT_CHARACTERISTIC_(SECURITY_SYSTEM_CURRENT_STATE, 0);
@@ -42,8 +42,8 @@ homekit_accessory_t *accessories[] = {
 			NULL
 		}),
         HOMEKIT_SERVICE(SWITCH, .primary=true, .characteristics=(homekit_characteristic_t*[]) {
-            &wemoOn,
-            &wemoName,           
+            &switchOn,
+            &switchName,           
             NULL
         }),
         NULL

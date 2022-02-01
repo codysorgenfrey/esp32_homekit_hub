@@ -1,11 +1,11 @@
-#ifndef __WEMOSWITCH_H__
-#define __WEMOSWITCH_H__
+#ifndef __SWITCHACCESSORY_H__
+#define __SWITCHACCESSORY_H__
 
 #include "common.h"
 #include <homekit/characteristics.h>
 #include <ESP8266HTTPClient.h>
 
-extern "C" homekit_characteristic_t wemoOn;
+extern "C" homekit_characteristic_t switchOn;
 
 void setSwitch(const homekit_value_t value) {
     // tell switch what homekit says
@@ -22,7 +22,7 @@ void setSwitch(const homekit_value_t value) {
     http.addHeader("SOAPACTION", "\"urn:Belkin:service:basicevent:1#SetBinaryState\"");
     
     #if HK_DEBUG
-        Serial.println("Sending POST request to Wemo.");
+        Serial.println(F("Sending POST request to Wemo."));
     #endif
     int httpCode = http.POST(postData);
 
@@ -30,17 +30,17 @@ void setSwitch(const homekit_value_t value) {
     if (httpCode > 0) {
         if (httpCode == HTTP_CODE_OK) {
             #if HK_DEBUG
-                Serial.println("Wemo switch on.");
+                Serial.println(F("Wemo switch on."));
             #endif
-            wemoOn.value = value;
+            switchOn.value = value;
         } else {
             #if HK_DEBUG
-                Serial.println("Switch responded not ok.");
+                Serial.println(F("Switch responded not ok."));
             #endif
         }
     } else {
         #if HK_DEBUG
-            Serial.println("POST request error.");
+            Serial.println(F("POST request error."));
         #endif
     }
 
@@ -62,7 +62,7 @@ homekit_value_t getSwitch() {
     http.addHeader("SOAPACTION", "\"urn:Belkin:service:basicevent:1#GetBinaryState\"");
     
     #if HK_DEBUG
-        Serial.println("Sending POST request to Wemo.");
+        Serial.println(F("Sending POST request to Wemo."));
     #endif
     int httpCode = http.POST(postData);
 
@@ -72,35 +72,35 @@ homekit_value_t getSwitch() {
             const String &payload = http.getString();
             if (payload.indexOf("<BinaryState>1</BinaryState>") > 0) {
                 #if HK_DEBUG
-                    Serial.println("Wemo switch on.");
+                    Serial.println(F("Wemo switch on."));
                 #endif
-                wemoOn.value.bool_value = true;
+                switchOn.value.bool_value = true;
             } else {
                 #if HK_DEBUG
-                    Serial.println("Wemo switch off.");
+                    Serial.println(F("Wemo switch off."));
                 #endif
-                wemoOn.value.bool_value = false;
+                switchOn.value.bool_value = false;
             }
         } else {
             #if HK_DEBUG
-                Serial.println("Switch responded not ok.");
+                Serial.println(F("Switch responded not ok."));
             #endif
         }
     } else {
         #if HK_DEBUG
-            Serial.println("POST request error.");
+            Serial.println(F("POST request error."));
         #endif
     }
 
     http.end(); // these might kill the WiFi... we'll see
     client.stop();
 
-    return wemoOn.value;
+    return switchOn.value;
 }
 
-bool initWemoSwitch() {
-    wemoOn.setter = setSwitch;
-    wemoOn.getter = getSwitch;
+bool initSwitchAccessory() {
+    switchOn.setter = setSwitch;
+    switchOn.getter = getSwitch;
 
     return true;
 }
