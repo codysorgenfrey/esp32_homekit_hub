@@ -1,6 +1,7 @@
 #ifndef __COMMON_H__
 #define __COMMON_H__
 
+#include <esp_xpgm.h>
 #include "secrets.h"
 
 // Board stuff
@@ -26,5 +27,17 @@
 #define STATUS_NO_HOMEKIT 4
 #define STATUS_NO_HEAT_PUMP 5
 #define STATUS_OTA_PROGRESS 6
+
+// Logging
+#if HK_DEBUG
+#define HK_LOG(message, ...) XPGM_PRINTF(">>> [%7d] HomeKit Hub: " message , millis(), ##__VA_ARGS__)
+#define HK_LOG_LINE(message, ...) XPGM_PRINTF(">>> [%7d] HomeKit Hub: " message "\n", millis(), ##__VA_ARGS__)
+#else
+#define HK_LOG(message, ...)
+#define HK_LOG_LINE(message, ...)
+#endif
+
+// SimpliSafe
+#define SS_DEBUG true
 
 #endif

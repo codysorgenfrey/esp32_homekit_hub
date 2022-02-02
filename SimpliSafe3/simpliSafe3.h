@@ -1,24 +1,26 @@
 #ifndef __SIMPLISAFE3_H__
 #define __SIMPLISAFE3_H__
 
+#include "ssCommon.h"
 #include <ArduinoJson.h>
 #include <WiFiClient.h>
 #include <ESP8266HTTPClient.h>
 #include "ss3AuthManager.h"
 
-#define ss3Api "https://api.simplisafe.com/v1"
-
 class SimpliSafe3 {
     private:
         String subId;
         String userId;
-        bool logging;
         SS3AuthManager *authManager;
 
     public:
-        SimpliSafe3(SS3AuthManager *inAuthManager, bool inLogging = true) {
+        SimpliSafe3(SS3AuthManager *inAuthManager) {
+            if (!Serial && SS_DEBUG) {
+                Serial.begin(115200);
+                while (!Serial) ; // wait till serial is ready
+            }
+            
             this->authManager = inAuthManager;
-            this->logging = inLogging;
         }
 
         String getUserID() {
@@ -37,7 +39,7 @@ class SimpliSafe3 {
             HTTPClient http;
             http.useHTTP10(true); // need to use for ArduinoJson
 
-            http.begin(client, ss3Api + path);
+            http.begin(client, SS3API + path);
             http.addHeader("Authorization", this->authManager->tokenType + " " + this->authManager->accessToken);
             int responseCode;
 
@@ -46,25 +48,26 @@ class SimpliSafe3 {
             else
                 responseCode = http.GET();
 
+            
+            DynamicJsonDocument doc(256); // TODO: optimize size
             if (responseCode >= 200 && responseCode <= 299) { // OK
-                DynamicJsonDocument doc(256); // TODO: optimize size
                 DeserializationError err = deserializeJson(doc, http.getStream());
 
-                if (this->logging && err) {
-                    Serial.println(F("SS3 Error: API request"));
-                    Serial.println(err.f_str());
+                if (err) {
+                    SS_LOG("SS3 Error: API request: ");
+                    SS_LOG_LINE("%s", err.f_str());
+                } else {
+                    #if SS_DEBUG
+                        serializeJsonPretty(doc, Serial);
+                    #endif
                 }
-
-                return doc;
-            } else if (this->logging) {
-                Serial.print(F("SS3 Error: API response: "));
-                Serial.println(responseCode);
-            }
+            } 
+            SS_LOG("SS3 Error: API response: ");
+            SS_LOG_LINE("%s", responseCode);
 
             client.stop();
             http.end();
-            
-            return StaticJsonDocument<0>();
+            return doc;
         }
 
         DynamicJsonDocument getSubscriptions() {

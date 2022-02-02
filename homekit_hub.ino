@@ -57,10 +57,6 @@ void setup()
     digitalWrite(STATUS_LED, LED_OFF);
     digitalWrite(PWR_LED, LED_ON);
 
-    #if HK_DEBUG
-        Serial.begin(115200);
-    #endif
-
     if (boardStatus == STATUS_NO_WIFI) {
         // Connect to wifi
         wm.setDebugOutput(HK_DEBUG);
@@ -80,29 +76,25 @@ void setup()
         ArduinoOTA.setRebootOnSuccess(true);
         ArduinoOTA.onStart([](){ 
             boardStatus = STATUS_OTA_PROGRESS;
-            #if HK_DEBUG
-                Serial.println("Starting OTA Update");
-            #endif
+            HK_LOG_LINE("Starting OTA Update");
         });
         ArduinoOTA.onProgress([](unsigned int progress, unsigned int total) { handleStatus(); });
         ArduinoOTA.onError([](ota_error_t error) { 
             boardStatus = STATUS_ERROR;
-            #if HK_DEBUG
-                Serial.printf("Error[%u]: ", error);
-                if (error == OTA_AUTH_ERROR) Serial.println("Auth Failed");
-                else if (error == OTA_BEGIN_ERROR) Serial.println("Begin Failed");
-                else if (error == OTA_CONNECT_ERROR) Serial.println("Connect Failed");
-                else if (error == OTA_RECEIVE_ERROR) Serial.println("Receive Failed");
-                else if (error == OTA_END_ERROR) Serial.println("End Failed");
-            #endif
+            HK_LOG("OTA Error[%u]: ", error);
+            if (error == OTA_AUTH_ERROR) { HK_LOG_LINE("Auth Failed"); }
+            else if (error == OTA_BEGIN_ERROR) { HK_LOG_LINE("Begin Failed"); }
+            else if (error == OTA_CONNECT_ERROR) { HK_LOG_LINE("Connect Failed"); }
+            else if (error == OTA_RECEIVE_ERROR) { HK_LOG_LINE("Receive Failed"); }
+            else if (error == OTA_END_ERROR) { HK_LOG_LINE("End Failed"); }
         });
         ArduinoOTA.begin();
         
-        // init WeMo switch
+        // init accessories
         boardStatus = initSwitchAccessory() ? STATUS_NO_HOMEKIT : STATUS_ERROR;
 
-        if (!boardStatus == STATUS_ERROR)
-            boardStatus = initSecuritySystemAccessory() ? STATUS_NO_HOMEKIT : STATUS_ERROR;
+        // if (!boardStatus == STATUS_ERROR)
+        //     boardStatus = initSecuritySystemAccessory() ? STATUS_NO_HOMEKIT : STATUS_ERROR;
 
         if (!boardStatus == STATUS_ERROR)
             boardStatus = initGarageDoorAccessory() ? STATUS_NO_HOMEKIT : STATUS_ERROR;
@@ -132,4 +124,6 @@ void loop()
 
     // Handle Homekit
     if (boardStatus != STATUS_NO_HOMEKIT) arduino_homekit_loop();
+
+    // if (boardStatus != STATUS_ERROR) securitySystemLoop();
 }

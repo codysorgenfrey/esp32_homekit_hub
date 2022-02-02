@@ -21,27 +21,19 @@ void setSwitch(const homekit_value_t value) {
     http.addHeader("Content-Type", "text/xml; charset=\"utf-8\"");
     http.addHeader("SOAPACTION", "\"urn:Belkin:service:basicevent:1#SetBinaryState\"");
     
-    #if HK_DEBUG
-        Serial.println(F("Sending POST request to Wemo."));
-    #endif
+    HK_LOG_LINE("Sending POST request to Wemo.");
     int httpCode = http.POST(postData);
 
     // If HTTP code is not negative, the POST succeeded
     if (httpCode > 0) {
         if (httpCode == HTTP_CODE_OK) {
-            #if HK_DEBUG
-                Serial.println(F("Wemo switch on."));
-            #endif
+            HK_LOG_LINE("Wemo switch on.");
             switchOn.value = value;
         } else {
-            #if HK_DEBUG
-                Serial.println(F("Switch responded not ok."));
-            #endif
+            HK_LOG_LINE("Switch responded not ok.");
         }
     } else {
-        #if HK_DEBUG
-            Serial.println(F("POST request error."));
-        #endif
+        HK_LOG_LINE("POST request error.");
     }
 
     http.end(); // these might kill the WiFi... we'll see
@@ -61,9 +53,7 @@ homekit_value_t getSwitch() {
     http.addHeader("Content-Type", "text/xml; charset=\"utf-8\"");
     http.addHeader("SOAPACTION", "\"urn:Belkin:service:basicevent:1#GetBinaryState\"");
     
-    #if HK_DEBUG
-        Serial.println(F("Sending POST request to Wemo."));
-    #endif
+    HK_LOG_LINE("Sending POST request to Wemo.");
     int httpCode = http.POST(postData);
 
     // If HTTP code is not negative, the POST succeeded
@@ -71,30 +61,21 @@ homekit_value_t getSwitch() {
         if (httpCode == HTTP_CODE_OK) {
             const String &payload = http.getString();
             if (payload.indexOf("<BinaryState>1</BinaryState>") > 0) {
-                #if HK_DEBUG
-                    Serial.println(F("Wemo switch on."));
-                #endif
+                HK_LOG_LINE("Wemo switch on.");
                 switchOn.value.bool_value = true;
             } else {
-                #if HK_DEBUG
-                    Serial.println(F("Wemo switch off."));
-                #endif
+                HK_LOG_LINE("Wemo switch off.");
                 switchOn.value.bool_value = false;
             }
         } else {
-            #if HK_DEBUG
-                Serial.println(F("Switch responded not ok."));
-            #endif
+            HK_LOG_LINE("Switch responded not ok.");
         }
     } else {
-        #if HK_DEBUG
-            Serial.println(F("POST request error."));
-        #endif
+        HK_LOG_LINE("POST request error.");
     }
 
-    http.end(); // these might kill the WiFi... we'll see
+    http.end();
     client.stop();
-
     return switchOn.value;
 }
 

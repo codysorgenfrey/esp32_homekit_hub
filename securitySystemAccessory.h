@@ -4,11 +4,11 @@
 #include "common.h"
 #include <homekit/characteristics.h>
 #include <ESP8266HTTPClient.h>
-#include "simpliSafe3.h"
-#include "ss3AuthManager.h"
+#include "SimpliSafe3/simpliSafe3.h"
+#include "SimpliSafe3/ss3AuthManager.h"
 
-SS3AuthManager authManager(HK_DEBUG);
-SimpliSafe3 ss(&authManager, HK_DEBUG);
+SS3AuthManager authManager;
+SimpliSafe3 ss(&authManager);
 
 extern "C" homekit_characteristic_t ssCurState; // 0 home, 1 away, 2 night, 3 off, 4 alarm
 extern "C" homekit_characteristic_t ssTarState; // 0 home, 1 away, 2 night, 3 off
@@ -42,9 +42,7 @@ homekit_value_t getSystemCurState() {
     } else if (ss3State.equals("ALARM")) {
         ss3TranslatedState = 4;
     } else if (ss3State.equals("UNKOWN")) {
-        #if HK_DEBUG
-            Serial.println(F("!!! Unknown Simplisafe Alarm State. !!!"));
-        #endif
+        HK_LOG_LINE("Unknown Simplisafe Alarm State.");
     }
 
     ssCurState.value.int_value = ss3TranslatedState;
@@ -52,31 +50,31 @@ homekit_value_t getSystemCurState() {
     return ssCurState.value;
 }
 
-bool initSecuritySystemAccessory() {    
+bool initSecuritySystemAccessory() {
+    // login
     if (!authManager.isAuthorized()) {
-        // login
-        String authURL = authManager.getSS3AuthURL();
-        if (Serial) {
-            Serial.print(F("Get that damn URL code (starts with com.SimpliSafe.mobile://): "));
-            Serial.println(authURL);
-            while (Serial.available() == 0){
-                ; // wait for url input
-            }
-            String code = Serial.readString();
-            bool success = authManager.getToken(code);
-            if (success)
-                Serial.println(F("Successfully autherized Homekit with SimpliSafe."));
-            else 
-                Serial.println(F("Error autherizing Homekit with Simplisafe."));
-        }
+        if (!Serial) Serial.begin(115200);
+        while (!Serial) { ; } // wait for Serial
+
+        Serial.print(F("Get that damn URL code (starts with com.SimpliSafe.mobile://): "));
+        Serial.println(authManager.getSS3AuthURL());
+        while (Serial.available() == 0) { ; } // wait for url input
+        String code = Serial.readString();
+        if (authManager.getToken(code)) Serial.println(F("Successfully autherized Homekit with SimpliSafe."));
+        else Serial.println(F("Error autherizing Homekit with Simplisafe."));
     } else {
         authManager.refreshCredentials();
     }
 
+    // setters and getters
     ssTarState.setter = setSystemTarState;
     ssCurState.getter = getSystemCurState;
 
     return true;
+}
+
+void securitySystemLoop() {
+    // check to refresh creds here
 }
 
 #endif
