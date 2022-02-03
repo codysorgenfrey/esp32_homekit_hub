@@ -51,6 +51,11 @@ void handleStatus() {
 
 void setup()
 {
+    #if HK_DEBUG || SS_DEBUG
+        Serial.begin(115200);
+        while (!Serial) { ; }; // wait for serial
+    #endif
+
     // Setup output LED
     pinMode(STATUS_LED, OUTPUT); // set up status LED
     pinMode(PWR_LED, OUTPUT);    // set up power LED
@@ -93,10 +98,10 @@ void setup()
         // init accessories
         boardStatus = initSwitchAccessory() ? STATUS_NO_HOMEKIT : STATUS_ERROR;
 
-        // if (!boardStatus == STATUS_ERROR)
-        //     boardStatus = initSecuritySystemAccessory() ? STATUS_NO_HOMEKIT : STATUS_ERROR;
+        if (boardStatus != STATUS_ERROR)
+            boardStatus = initSecuritySystemAccessory() ? STATUS_NO_HOMEKIT : STATUS_ERROR;
 
-        if (!boardStatus == STATUS_ERROR)
+        if (boardStatus != STATUS_ERROR)
             boardStatus = initGarageDoorAccessory() ? STATUS_NO_HOMEKIT : STATUS_ERROR;
 
         // Connect to Homekit
@@ -125,5 +130,5 @@ void loop()
     // Handle Homekit
     if (boardStatus != STATUS_NO_HOMEKIT) arduino_homekit_loop();
 
-    // if (boardStatus != STATUS_ERROR) securitySystemLoop();
+    if (boardStatus != STATUS_ERROR) securitySystemLoop();
 }

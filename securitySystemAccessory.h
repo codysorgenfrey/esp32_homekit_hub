@@ -53,15 +53,18 @@ homekit_value_t getSystemCurState() {
 bool initSecuritySystemAccessory() {
     // login
     if (!authManager.isAuthorized()) {
-        if (!Serial) Serial.begin(115200);
-        while (!Serial) { ; } // wait for Serial
-
-        Serial.print(F("Get that damn URL code (starts with com.SimpliSafe.mobile://): "));
-        Serial.println(authManager.getSS3AuthURL());
+        HK_LOG_LINE("Get that damn URL code:");
+        HK_LOG_LINE("%s", authManager.getSS3AuthURL().c_str());
+        while (Serial.available() > 0) { Serial.read(); } // flush serial monitor
         while (Serial.available() == 0) { ; } // wait for url input
         String code = Serial.readString();
-        if (authManager.getToken(code)) Serial.println(F("Successfully autherized Homekit with SimpliSafe."));
-        else Serial.println(F("Error autherizing Homekit with Simplisafe."));
+        Serial.println();
+        if (authManager.getToken(code)) {
+            HK_LOG_LINE("Successfully authorized Homekit with SimpliSafe.");
+        } else { 
+            HK_LOG_LINE("Error authorizing Homekit with Simplisafe.");
+            return false;
+        }
     } else {
         authManager.refreshCredentials();
     }

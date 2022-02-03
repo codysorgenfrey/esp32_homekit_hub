@@ -85,11 +85,11 @@ class SS3AuthManager {
             }"));
 
             if (response < 200 && response < 299) {
-                SS_LOG_LINE("SS3 AuthManager Error refreshing credentials.");
+                SS_LOG_LINE("Error refreshing credentials.");
                 return false;
             }
 
-            storeToken(http.getStream());
+            storeToken(&http);
 
             http.end();
             client.stop();
@@ -105,12 +105,11 @@ class SS3AuthManager {
         }
 
         String getSS3AuthURL() {
-            SS_LOG_LINE("");
             char hex[sizeof(this->randData) * 2];
             btoh(hex, this->randData, sizeof(this->randData));
             SS_LOG_LINE("Random String[%u]: %s", sizeof(this->randData), hex);
-            SS_LOG_LINE("Code Verifier    : %s", this->codeVerifier.c_str());
-            SS_LOG_LINE("Code Challenge   : %s", this->codeChallenge.c_str());
+            SS_LOG_LINE("Code Verifier:     %s", this->codeVerifier.c_str());
+            SS_LOG_LINE("Code Challenge:    %s", this->codeChallenge.c_str());
             return String(SS_OAUTH_AUTH_URL) +
                 "?client_id=" + SS_OAUTH_CLIENT_ID +
                 "&scope=" + SS_OAUTH_SCOPE +
@@ -126,41 +125,44 @@ class SS3AuthManager {
         bool getToken(String code) {
             WiFiClient client;
             HTTPClient http;
-            http.useHTTP10(true);
 
+            http.useHTTP10(true);
             http.begin(client, SS_OAUTH + String("/token"));
             http.addHeader("Host", "auth.simplisafe.com");
             http.addHeader("Content-Type", "application/json");
             http.addHeader("Content-Length", "186");
             http.addHeader("Auth0-Client", SS_OAUTH_AUTH0_CLIENT);
 
-            int response = http.POST(String("{ \
-                grant_type: \"authorization_code\", \
-                client_id: " + String(SS_OAUTH_CLIENT_ID) + ", \
-                code_verifier:" + this->codeVerifier + " \
-                code:" + code + " \
-                redirect_uri:" + SS_OAUTH_REDIRECT_URI + " \
-            }"));
+            DynamicJsonDocument doc(384);
+            String payload;
+            doc["grant_type"] = "authorization_code";
+            doc["client_id"] = SS_OAUTH_CLIENT_ID;
+            doc["code_verifier"] = this->codeVerifier;
+            doc["code"] = code;
+            doc["redirect_uri"] = SS_OAUTH_REDIRECT_URI;
+            serializeJson(doc, payload);
 
+            int response = http.POST(payload);
             if (response < 200 && response < 299) {
-                SS_LOG_LINE("SS3 AuthManager Error, getToken(), bad response.");
+                SS_LOG_LINE("Error getting token, bad response.");
                 return false;
             }
 
-            storeToken(http.getStream());
+            bool success = storeToken(&http);
 
             http.end();
             client.stop();
-            return true;
+            return success;
         }
 
-        void storeToken(WiFiClient stream) {
-            DynamicJsonDocument doc(256); // TODO: optimize size
-            DeserializationError err = deserializeJson(doc, stream);
+        bool storeToken(HTTPClient *http) {
+            DynamicJsonDocument doc(2048); // TODO: optimize size
+            DeserializationError err = deserializeJson(doc, http->getStream());
 
+            // CRASHING HERE FOR SOME REASON, NEED TO SKIP HTTP HEADERS?
             if (err) {
-                SS_LOG("SS3 AuthManager Error, storeToken(), deserialize json error: ");
-                SS_LOG_LINE("%s", err.f_str());
+                SS_LOG_LINE("Error storing token, deserialize json error: %s", err.f_str());
+                return false;
             }
 
             SS_LOG("Store token from response: ");
@@ -176,6 +178,8 @@ class SS3AuthManager {
             this->expiresIn = doc["expires_in"].as<unsigned long>();
 
             // store accessToken, codeVerifier, refreshToken in eeprom here
+
+            return true;
         }
 };
 
