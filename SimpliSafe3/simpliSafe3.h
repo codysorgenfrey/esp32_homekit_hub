@@ -14,7 +14,7 @@ class SimpliSafe3 {
         SS3AuthManager authManager;
 
     public:
-        bool init() { return authManager.init(); }
+        inline bool init() { return authManager.init(); }
 
         bool authorize(HardwareSerial *hwSerial = &Serial, unsigned long baud = 115200) {
             if (!authManager.isAuthorized()) {

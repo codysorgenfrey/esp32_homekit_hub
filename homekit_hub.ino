@@ -64,39 +64,44 @@ void setup()
 
     if (boardStatus == STATUS_NO_WIFI) {
         // Connect to wifi
-        wm.setDebugOutput(HK_DEBUG);
-        wm.setConfigPortalBlocking(false);
-        wm.setSaveConfigCallback([](){ 
-            boardStatus = STATUS_NO_OTA;
-            setup();
-        });
+        // wm.setDebugOutput(HK_DEBUG);
+        // wm.setConfigPortalBlocking(false);
+        // wm.setSaveConfigCallback([](){ 
+        //     boardStatus = STATUS_NO_OTA;
+        //     setup();
+        // });
 
-        boardStatus = wm.autoConnect(HK_UNIQUE_NAME) ? STATUS_NO_OTA : STATUS_NO_WIFI;
+        // boardStatus = wm.autoConnect(HK_UNIQUE_NAME) ? STATUS_NO_OTA : STATUS_NO_WIFI;
+        WiFi.mode(WIFI_STA);
+        WiFi.begin("Sorgenfreys", "yasuckasucka");
+        while (WiFi.status() != WL_CONNECTED) { delay(500); }
+        HK_LOG_LINE("Wifi connected");
+        boardStatus = STATUS_NO_OTA;
     }
     
     if (boardStatus == STATUS_NO_OTA) {
-        // Connect OTA
-        ArduinoOTA.setHostname(HK_UNIQUE_NAME);
-        ArduinoOTA.setPassword(OTA_PASS);
-        ArduinoOTA.setRebootOnSuccess(true);
-        ArduinoOTA.onStart([](){ 
-            boardStatus = STATUS_OTA_PROGRESS;
-            HK_LOG_LINE("Starting OTA Update");
-        });
-        ArduinoOTA.onProgress([](unsigned int progress, unsigned int total) { handleStatus(); });
-        ArduinoOTA.onError([](ota_error_t error) { 
-            boardStatus = STATUS_ERROR;
-            HK_LOG("OTA Error[%u]: ", error);
-            if (error == OTA_AUTH_ERROR) { HK_LOG_LINE("Auth Failed"); }
-            else if (error == OTA_BEGIN_ERROR) { HK_LOG_LINE("Begin Failed"); }
-            else if (error == OTA_CONNECT_ERROR) { HK_LOG_LINE("Connect Failed"); }
-            else if (error == OTA_RECEIVE_ERROR) { HK_LOG_LINE("Receive Failed"); }
-            else if (error == OTA_END_ERROR) { HK_LOG_LINE("End Failed"); }
-        });
-        ArduinoOTA.begin();
+    //     // Connect OTA
+    //     ArduinoOTA.setHostname(HK_UNIQUE_NAME);
+    //     ArduinoOTA.setPassword(OTA_PASS);
+    //     ArduinoOTA.setRebootOnSuccess(true);
+    //     ArduinoOTA.onStart([](){ 
+    //         boardStatus = STATUS_OTA_PROGRESS;
+    //         HK_LOG_LINE("Starting OTA Update");
+    //     });
+    //     ArduinoOTA.onProgress([](unsigned int progress, unsigned int total) { handleStatus(); });
+    //     ArduinoOTA.onError([](ota_error_t error) { 
+    //         boardStatus = STATUS_ERROR;
+    //         HK_LOG("OTA Error[%u]: ", error);
+    //         if (error == OTA_AUTH_ERROR) { HK_LOG_LINE("Auth Failed"); }
+    //         else if (error == OTA_BEGIN_ERROR) { HK_LOG_LINE("Begin Failed"); }
+    //         else if (error == OTA_CONNECT_ERROR) { HK_LOG_LINE("Connect Failed"); }
+    //         else if (error == OTA_RECEIVE_ERROR) { HK_LOG_LINE("Receive Failed"); }
+    //         else if (error == OTA_END_ERROR) { HK_LOG_LINE("End Failed"); }
+    //     });
+    //     ArduinoOTA.begin();
         
         // init accessories
-        boardStatus = initSwitchAccessory() ? STATUS_NO_HOMEKIT : STATUS_ERROR;
+        // boardStatus = initSwitchAccessory() ? STATUS_NO_HOMEKIT : STATUS_ERROR;
 
         if (boardStatus != STATUS_ERROR)
             boardStatus = initSecuritySystemAccessory() ? STATUS_NO_HOMEKIT : STATUS_ERROR;

@@ -35,19 +35,24 @@ class SS3AuthManager {
 
         bool init() {
             // init https stuff
-            SS_LOG_LINE("Got here.");
             setClock();
             if (!SPIFFS.begin()) {
                 SS_LOG_LINE("Error starting SPIFFS.");
                 return false;
             }
-            if (certStore.initCertStore(SPIFFS, PSTR("/certs.idx"), PSTR("/certs.ar")) == 0) {
+            #if SS_DEBUG
+                printFS();
+            #endif
+            int numCerts = certStore.initCertStore(SPIFFS, PSTR("/certs.idx"), PSTR("/certs.ar"));
+            if (numCerts == 0) {
                 SS_LOG_LINE("Error reading in SSL certificates.");
                 return false;
             }
+            SS_LOG_LINE("Read in %i certificates.", numCerts);
             client.setCertStore(&certStore);
             https.useHTTP10(true);
             https.setReuse(false);
+            request("https://google.com", false, "", 0); // test https
 
             // read in eeprom for accessToken, refreshToken, codeVerifier
 
@@ -60,6 +65,19 @@ class SS3AuthManager {
             codeChallenge = base64URLEncode(hashOut);
 
             return true;
+        }
+
+        void printFS() {
+            String str = "";
+            Dir dir = SPIFFS.openDir("/");
+            while (dir.next())
+            {
+                str += dir.fileName();
+                str += " / ";
+                str += dir.fileSize();
+                str += "\r\n";
+            }
+            SS_LOG_LINE("%s", str.c_str());
         }
 
         void setClock() {
@@ -128,8 +146,8 @@ class SS3AuthManager {
             ;
         }
 
-        DynamicJsonDocument request(String url, bool post = false, String payload = "") {
-            https.begin(client, url);
+        DynamicJsonDocument request(String url, bool post = false, String payload = "", int docSize = 3074) {
+            if (https.begin(client, url)) SS_LOG_LINE("https began.");
 
             int response;
             if (post)
@@ -143,7 +161,7 @@ class SS3AuthManager {
                 return StaticJsonDocument<0>();
             }
             
-            DynamicJsonDocument doc(3076); // TODO: optimize size
+            DynamicJsonDocument doc(docSize); // TODO: optimize size
             DeserializationError err = deserializeJson(doc, https.getStream());
             if (err) {
                 SS_LOG_LINE("API request deserialization error: %s", err.f_str());
@@ -174,7 +192,7 @@ class SS3AuthManager {
             doc["redirect_uri"] = SS_OAUTH_REDIRECT_URI;
             serializeJson(doc, payload);
             
-            DynamicJsonDocument res = request(SS_OAUTH + String("/token"), true, payload);
+            DynamicJsonDocument res = request(SS_OAUTH + String("/token"), true, payload, 3074);
 
             if (res.size() != 0)
                 return storeAuthToken(res);

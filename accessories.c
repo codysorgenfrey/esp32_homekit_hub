@@ -82,5 +82,5 @@ homekit_accessory_t *accessories[] = {
 
 homekit_server_config_t config = {
 		.accessories = accessories,
-		.password = HK_PASSWORD
+		.password = HK_PASS
 };
