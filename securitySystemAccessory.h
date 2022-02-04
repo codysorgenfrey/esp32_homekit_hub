@@ -4,6 +4,7 @@
 #include "common.h"
 #include <homekit/characteristics.h>
 #include <ESP8266HTTPClient.h>
+#include <WiFiClientSecure.h>
 #include "SimpliSafe3/simpliSafe3.h"
 
 SimpliSafe3 ss;
@@ -48,9 +49,9 @@ homekit_value_t getSystemCurState() {
     return ssCurState.value;
 }
 
-bool initSecuritySystemAccessory() {
+bool initSecuritySystemAccessory(HTTPClient *https, WiFiClientSecure *client) {
     // login
-    bool success = ss.init();
+    bool success = ss.init(https, client);
     if (success) {
         success = ss.authorize(&Serial, 115200);
     }
