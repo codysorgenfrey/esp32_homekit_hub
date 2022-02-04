@@ -5,10 +5,8 @@
 #include <homekit/characteristics.h>
 #include <ESP8266HTTPClient.h>
 #include "SimpliSafe3/simpliSafe3.h"
-#include "SimpliSafe3/ss3AuthManager.h"
 
-SS3AuthManager authManager;
-SimpliSafe3 ss(&authManager);
+SimpliSafe3 ss;
 
 extern "C" homekit_characteristic_t ssCurState; // 0 home, 1 away, 2 night, 3 off, 4 alarm
 extern "C" homekit_characteristic_t ssTarState; // 0 home, 1 away, 2 night, 3 off
@@ -52,28 +50,16 @@ homekit_value_t getSystemCurState() {
 
 bool initSecuritySystemAccessory() {
     // login
-    if (!authManager.isAuthorized()) {
-        HK_LOG_LINE("Get that damn URL code:");
-        HK_LOG_LINE("%s", authManager.getSS3AuthURL().c_str());
-        while (Serial.available() > 0) { Serial.read(); } // flush serial monitor
-        while (Serial.available() == 0) { ; } // wait for url input
-        String code = Serial.readString();
-        Serial.println();
-        if (authManager.getToken(code)) {
-            HK_LOG_LINE("Successfully authorized Homekit with SimpliSafe.");
-        } else { 
-            HK_LOG_LINE("Error authorizing Homekit with Simplisafe.");
-            return false;
-        }
-    } else {
-        authManager.refreshCredentials();
+    bool success = ss.init();
+    if (success) {
+        success = ss.authorize(&Serial, 115200);
     }
 
     // setters and getters
     ssTarState.setter = setSystemTarState;
     ssCurState.getter = getSystemCurState;
 
-    return true;
+    return success;
 }
 
 void securitySystemLoop() {

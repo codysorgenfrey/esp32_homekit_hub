@@ -5,12 +5,15 @@
 
 #include "ssCommon.h"
 #include <ESP8266HTTPClient.h>
-#include <WiFiClient.h>
+#include <WiFiClientSecure.h>
+#include <ArduinoJson.h>
 #include "urlTools.h"
 #include <Regexp.h>
 #include <base64.h>
 #include <crypto.h>
 #include <SHA256.h>
+#include <time.h>
+#include <FS.h>
 
 #define SHA256_LEN 32
 
@@ -24,19 +27,51 @@ class SS3AuthManager {
         unsigned long expiresIn;
 
     public:
+        HTTPClient https;
+        WiFiClientSecure client;
+        CertStore certStore;
         String tokenType = "Bearer";
         String accessToken;
 
-        SS3AuthManager() {
+        bool init() {
+            // init https stuff
+            SS_LOG_LINE("Got here.");
+            setClock();
+            if (!SPIFFS.begin()) {
+                SS_LOG_LINE("Error starting SPIFFS.");
+                return false;
+            }
+            if (certStore.initCertStore(SPIFFS, PSTR("/certs.idx"), PSTR("/certs.ar")) == 0) {
+                SS_LOG_LINE("Error reading in SSL certificates.");
+                return false;
+            }
+            client.setCertStore(&certStore);
+            https.useHTTP10(true);
+            https.setReuse(false);
+
             // read in eeprom for accessToken, refreshToken, codeVerifier
 
-            if (this->codeVerifier.length() == 0) {
-                ESP.random(this->randData, SHA256_LEN);
-                this->codeVerifier = base64URLEncode(this->randData);
+            if (codeVerifier.length() == 0) {
+                ESP.random(randData, SHA256_LEN);
+                codeVerifier = base64URLEncode(randData);
             }
             uint8_t hashOut[SHA256_LEN];
-            sha256(this->codeVerifier.c_str(), hashOut);
-            this->codeChallenge = base64URLEncode(hashOut);
+            sha256(codeVerifier.c_str(), hashOut);
+            codeChallenge = base64URLEncode(hashOut);
+
+            return true;
+        }
+
+        void setClock() {
+            configTime(-7 * 3600, 3600, "pool.ntp.org", "time.nist.gov");
+            time_t now = time(nullptr);
+            while (now < 8 * 3600 * 2)
+            {
+                delay(500);
+                now = time(nullptr);
+            }
+            struct tm timeinfo;
+            gmtime_r(&now, &timeinfo);
         }
 
         String base64URLEncode(uint8_t *buffer) {
@@ -67,115 +102,114 @@ class SS3AuthManager {
             hash.finalize(outBuff, SHA256_LEN);
         }
 
-        bool refreshCredentials() {
-            WiFiClient client;
-            HTTPClient http;
-            http.useHTTP10(true);
-
-            http.begin(client, SS_OAUTH + String("/token"));
-            http.addHeader("Host", "auth.simplisafe.com");
-            http.addHeader("Content-Type", "application/json");
-            http.addHeader("Content-Length", "186");
-            http.addHeader("Auth0-Client", SS_OAUTH_AUTH0_CLIENT);
-
-            int response = http.POST(String("{ \
-                grant_type: \"refresh_token\", \
-                client_id: " + String(SS_OAUTH_CLIENT_ID) + ", \
-                refresh_token:" + this->refreshToken + " \
-            }"));
-
-            if (response < 200 && response < 299) {
-                SS_LOG_LINE("Error refreshing credentials.");
-                return false;
-            }
-
-            storeToken(&http);
-
-            http.end();
-            client.stop();
-            return true;
-        }
-
         bool isAuthorized() {
-            return this->refreshToken.length() != 0;
+            return refreshToken.length() != 0;
         }
 
         bool isAuthenticated() {
-            // return millis() < this->expiry; // fix this to work with millis
+            // return millis() < expiry; // fix this to work with millis
         }
 
         String getSS3AuthURL() {
-            char hex[sizeof(this->randData) * 2];
-            btoh(hex, this->randData, sizeof(this->randData));
-            SS_LOG_LINE("Random String[%u]: %s", sizeof(this->randData), hex);
-            SS_LOG_LINE("Code Verifier:     %s", this->codeVerifier.c_str());
-            SS_LOG_LINE("Code Challenge:    %s", this->codeChallenge.c_str());
+            char hex[sizeof(randData) * 2];
+            btoh(hex, randData, sizeof(randData));
+            SS_LOG_LINE("Random String[%u]: %s", sizeof(randData), hex);
+            SS_LOG_LINE("Code Verifier:     %s", codeVerifier.c_str());
+            SS_LOG_LINE("Code Challenge:    %s", codeChallenge.c_str());
             return String(SS_OAUTH_AUTH_URL) +
                 "?client_id=" + SS_OAUTH_CLIENT_ID +
                 "&scope=" + SS_OAUTH_SCOPE +
                 "&response_type=code" +
                 "&redirect_uri=" + urlencode(SS_OAUTH_REDIRECT_URI) +
                 "&code_challenge_method=S256" +
-                "&code_challenge=" + this->codeChallenge +
+                "&code_challenge=" + codeChallenge +
                 "&audience=" + SS_OAUTH_AUDIENCE +
                 "&auth0Client=" + SS_OAUTH_AUTH0_CLIENT
             ;
         }
 
-        bool getToken(String code) {
-            WiFiClient client;
-            HTTPClient http;
+        DynamicJsonDocument request(String url, bool post = false, String payload = "") {
+            https.begin(client, url);
 
-            http.useHTTP10(true);
-            http.begin(client, SS_OAUTH + String("/token"));
-            http.addHeader("Host", "auth.simplisafe.com");
-            http.addHeader("Content-Type", "application/json");
-            http.addHeader("Content-Length", "186");
-            http.addHeader("Auth0-Client", SS_OAUTH_AUTH0_CLIENT);
+            int response;
+            if (post)
+                response = https.POST(payload);
+            else
+                response = https.GET();
+
+            if (response < 200 || response > 299) {
+                SS_LOG_LINE("Error, response: %i.", response);
+                SS_LOG_LINE("%s", https.getString().c_str());
+                return StaticJsonDocument<0>();
+            }
+            
+            DynamicJsonDocument doc(3076); // TODO: optimize size
+            DeserializationError err = deserializeJson(doc, https.getStream());
+            if (err) {
+                SS_LOG_LINE("API request deserialization error: %s", err.f_str());
+            } else {
+                #if SS_DEBUG
+                    serializeJsonPretty(doc, Serial);
+                    SS_LOG_LINE("");
+                #endif
+            }
+
+            client.stop();
+            https.end();
+            return doc;
+        }
+
+        bool getAuthToken(String code) {
+            https.addHeader("Host", "auth.simplisafe.com");
+            https.addHeader("Content-Type", "application/json");
+            https.addHeader("Content-Length", "186");
+            https.addHeader("Auth0-Client", SS_OAUTH_AUTH0_CLIENT);
 
             DynamicJsonDocument doc(384);
             String payload;
             doc["grant_type"] = "authorization_code";
             doc["client_id"] = SS_OAUTH_CLIENT_ID;
-            doc["code_verifier"] = this->codeVerifier;
+            doc["code_verifier"] = codeVerifier;
             doc["code"] = code;
             doc["redirect_uri"] = SS_OAUTH_REDIRECT_URI;
             serializeJson(doc, payload);
+            
+            DynamicJsonDocument res = request(SS_OAUTH + String("/token"), true, payload);
 
-            int response = http.POST(payload);
-            if (response < 200 && response < 299) {
-                SS_LOG_LINE("Error getting token, bad response.");
+            if (res.size() != 0)
+                return storeAuthToken(res);
+            else
                 return false;
-            }
-
-            bool success = storeToken(&http);
-
-            http.end();
-            client.stop();
-            return success;
         }
 
-        bool storeToken(HTTPClient *http) {
-            DynamicJsonDocument doc(2048); // TODO: optimize size
-            DeserializationError err = deserializeJson(doc, http->getStream());
+        bool refreshAuthToken() {
+            https.begin(client, SS_OAUTH + String("/token"));
+            https.addHeader("Host", "auth.simplisafe.com");
+            https.addHeader("Content-Type", "application/json");
+            https.addHeader("Content-Length", "186");
+            https.addHeader("Auth0-Client", SS_OAUTH_AUTH0_CLIENT);
 
-            // CRASHING HERE FOR SOME REASON, NEED TO SKIP HTTP HEADERS?
-            if (err) {
-                SS_LOG_LINE("Error storing token, deserialize json error: %s", err.f_str());
+            DynamicJsonDocument doc(256);
+            String payload;
+            doc["grant_type"] = "refresh_token";
+            doc["client_id"] = SS_OAUTH_CLIENT_ID;
+            doc["refresh_token"] = refreshToken;
+            serializeJson(doc, payload);
+
+            DynamicJsonDocument res = request(SS_OAUTH + String("/token"), true, payload);
+
+            if (res.size() != 0)
+                return storeAuthToken(res);
+            else
                 return false;
-            }
+        }
 
-            SS_LOG("Store token from response: ");
-            #if SS_DEBUG
-                serializeJsonPretty(doc, Serial);
-            #endif
-            SS_LOG_LINE("");
-
-            this->accessToken = doc["access_token"].as<String>();
-            this->refreshToken = doc["refresh_token"].as<String>();
-            this->tokenType = doc["token_type"].as<String>();
-            this->tokenIssueMS = millis();
-            this->expiresIn = doc["expires_in"].as<unsigned long>();
+        bool storeAuthToken(DynamicJsonDocument doc) {
+            accessToken = doc["access_token"].as<String>();
+            refreshToken = doc["refresh_token"].as<String>();
+            tokenType = doc["token_type"].as<String>();
+            tokenIssueMS = millis();
+            expiresIn = doc["expires_in"].as<unsigned long>();
 
             // store accessToken, codeVerifier, refreshToken in eeprom here
 

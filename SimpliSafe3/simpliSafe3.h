@@ -11,84 +11,67 @@ class SimpliSafe3 {
     private:
         String subId;
         String userId;
-        SS3AuthManager *authManager;
+        SS3AuthManager authManager;
 
     public:
-        SimpliSafe3(SS3AuthManager *inAuthManager) {
-            if (!Serial && SS_DEBUG) {
-                Serial.begin(115200);
-                while (!Serial) ; // wait till serial is ready
+        bool init() { return authManager.init(); }
+
+        bool authorize(HardwareSerial *hwSerial = &Serial, unsigned long baud = 115200) {
+            if (!authManager.isAuthorized()) {
+                SS_LOG_LINE("Get that damn URL code:");
+                SS_LOG_LINE("%s", authManager.getSS3AuthURL().c_str());
+                if (!hwSerial) hwSerial->begin(baud);
+                while (hwSerial->available() > 0) { hwSerial->read(); } // flush serial monitor
+                while (hwSerial->available() == 0) { ; } // wait for url input
+                String code = hwSerial->readString();
+                hwSerial->println();
+                if (authManager.getAuthToken(code)) {
+                    SS_LOG_LINE("Successfully authorized Homekit with SimpliSafe.");
+                    return true;
+                } else { 
+                    SS_LOG_LINE("Error authorizing Homekit with Simplisafe.");
+                    return false;
+                }
             }
-            
-            this->authManager = inAuthManager;
+                
+            return authManager.refreshAuthToken();
         }
 
         String getUserID() {
-            if (this->userId.length() != 0) {
-                return this->userId;
+            if (userId.length() != 0) {
+                return userId;
             }
 
-            DynamicJsonDocument data = this->request("/api/authCheck", false);
-            this->userId = data["userId"].as<String>();
+            DynamicJsonDocument data = request("/api/authCheck", false);
+            userId = data["userId"].as<String>();
 
-            return this->userId;
+            return userId;
         }
 
         DynamicJsonDocument request(String path, bool post = false, String payload = "") {
-            WiFiClient client;
-            HTTPClient http;
-            http.useHTTP10(true); // need to use for ArduinoJson
-
-            http.begin(client, SS3API + path);
-            http.addHeader("Authorization", this->authManager->tokenType + " " + this->authManager->accessToken);
-            int responseCode;
-
-            if (post)
-                responseCode = http.POST(payload);
-            else
-                responseCode = http.GET();
-
-            
-            DynamicJsonDocument doc(256); // TODO: optimize size
-            if (responseCode >= 200 && responseCode <= 299) { // OK
-                DeserializationError err = deserializeJson(doc, http.getStream());
-
-                if (err) {
-                    SS_LOG("SS3 Error: API request: ");
-                    SS_LOG_LINE("%s", err.f_str());
-                } else {
-                    #if SS_DEBUG
-                        serializeJsonPretty(doc, Serial);
-                    #endif
-                }
-            } 
-            SS_LOG("SS3 Error: API response: ");
-            SS_LOG_LINE("%s", responseCode);
-
-            client.stop();
-            http.end();
-            return doc;
+            authManager.https.addHeader("Authorization", authManager.tokenType + " " + authManager.accessToken);
+            return authManager.request(SS3API + path, post, payload);
         }
 
         DynamicJsonDocument getSubscriptions() {
-            String userID = this->getUserID();
-            DynamicJsonDocument subscriptions = this->request("/users/"+userID+"/subscriptions?activeOnly=false", false);
+            String userID = getUserID();
+            DynamicJsonDocument subscriptions = request("/users/"+userID+"/subscriptions?activeOnly=false", false);
 
             return subscriptions;
         }
 
         DynamicJsonDocument getSubscription() {
-            DynamicJsonDocument subs = this->getSubscriptions();
+            DynamicJsonDocument subs = getSubscriptions();
 
-            if (!this->subId && subs.size() == 1) { // TODO: Handle other situations
-                this->subId = subs[0]["sid"].as<String>();
+            if (!subId && subs.size() == 1) { // TODO: Handle other situations
+                subId = subs[0]["sid"].as<String>();
             }
 
             return subs[0];
         }
 
         String getAlarmState() {
-            DynamicJsonDocument subscription = this->getSubscription();
+            DynamicJsonDocument subscription = getSubscription();
 
             if (subscription["location"] && subscription["location"]["system"]) { 
                 if (subscription["location"]["system"]["isAlarming"].as<bool>())
@@ -110,12 +93,12 @@ class SimpliSafe3 {
         }
 
         bool setAlarmState(String newState) {
-            if (this->subId.length() == 0) {
-                this->getSubscription();
+            if (subId.length() == 0) {
+                getSubscription();
             }
 
-            DynamicJsonDocument data = this->request(
-                "/ss3/subscriptions/" + this->subId + "/state/" + newState, 
+            DynamicJsonDocument data = request(
+                "/ss3/subscriptions/" + subId + "/state/" + newState, 
                 true
             );
 
