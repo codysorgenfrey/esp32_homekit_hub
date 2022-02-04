@@ -4,7 +4,7 @@
 // TODO: store account in eeprom
 
 #include "ssCommon.h"
-#include <ESP8266HTTPClient.h>
+#include <ESP8266HTTPclient.h>
 #include <WiFiClientSecure.h>
 #include <ArduinoJson.h>
 #include "urlTools.h"
@@ -12,8 +12,6 @@
 #include <base64.h>
 #include <crypto.h>
 #include <SHA256.h>
-#include <time.h>
-#include <FS.h>
 
 #define SHA256_LEN 32
 
@@ -27,32 +25,23 @@ class SS3AuthManager {
         unsigned long expiresIn;
 
     public:
-        HTTPClient https;
-        WiFiClientSecure client;
-        CertStore certStore;
+        HTTPClient *https;
+        WiFiClientSecure *client;
         String tokenType = "Bearer";
         String accessToken;
 
-        bool init() {
+        bool init(HTTPClient *inHttps, WiFiClientSecure *inClient) {
             // init https stuff
-            setClock();
-            if (!SPIFFS.begin()) {
-                SS_LOG_LINE("Error starting SPIFFS.");
+            if (inHttps && inClient) {
+                https = inHttps;
+                client = inClient;
+            } else {
+                SS_LOG_LINE("No https setup.");
                 return false;
             }
-            #if SS_DEBUG
-                printFS();
-            #endif
-            int numCerts = certStore.initCertStore(SPIFFS, PSTR("/certs.idx"), PSTR("/certs.ar"));
-            if (numCerts == 0) {
-                SS_LOG_LINE("Error reading in SSL certificates.");
-                return false;
-            }
-            SS_LOG_LINE("Read in %i certificates.", numCerts);
-            client.setCertStore(&certStore);
-            https.useHTTP10(true);
-            https.setReuse(false);
-            request("https://google.com", false, "", 0); // test https
+            
+            https->useHTTP10(true); // for ArduinoJson
+            https->setReuse(false); // to reuse connection
 
             // read in eeprom for accessToken, refreshToken, codeVerifier
 
@@ -65,31 +54,6 @@ class SS3AuthManager {
             codeChallenge = base64URLEncode(hashOut);
 
             return true;
-        }
-
-        void printFS() {
-            String str = "";
-            Dir dir = SPIFFS.openDir("/");
-            while (dir.next())
-            {
-                str += dir.fileName();
-                str += " / ";
-                str += dir.fileSize();
-                str += "\r\n";
-            }
-            SS_LOG_LINE("%s", str.c_str());
-        }
-
-        void setClock() {
-            configTime(-7 * 3600, 3600, "pool.ntp.org", "time.nist.gov");
-            time_t now = time(nullptr);
-            while (now < 8 * 3600 * 2)
-            {
-                delay(500);
-                now = time(nullptr);
-            }
-            struct tm timeinfo;
-            gmtime_r(&now, &timeinfo);
         }
 
         String base64URLEncode(uint8_t *buffer) {
@@ -147,22 +111,22 @@ class SS3AuthManager {
         }
 
         DynamicJsonDocument request(String url, bool post = false, String payload = "", int docSize = 3074) {
-            if (https.begin(client, url)) SS_LOG_LINE("https began.");
+            if (https->begin(*client, url)) SS_LOG_LINE("https began.");
 
             int response;
             if (post)
-                response = https.POST(payload);
+                response = https->POST(payload);
             else
-                response = https.GET();
+                response = https->GET();
 
             if (response < 200 || response > 299) {
                 SS_LOG_LINE("Error, response: %i.", response);
-                SS_LOG_LINE("%s", https.getString().c_str());
+                SS_LOG_LINE("%s", https->getString().c_str());
                 return StaticJsonDocument<0>();
             }
             
             DynamicJsonDocument doc(docSize); // TODO: optimize size
-            DeserializationError err = deserializeJson(doc, https.getStream());
+            DeserializationError err = deserializeJson(doc, https->getStream());
             if (err) {
                 SS_LOG_LINE("API request deserialization error: %s", err.f_str());
             } else {
@@ -172,16 +136,16 @@ class SS3AuthManager {
                 #endif
             }
 
-            client.stop();
-            https.end();
+            client->stop();
+            https->end();
             return doc;
         }
 
         bool getAuthToken(String code) {
-            https.addHeader("Host", "auth.simplisafe.com");
-            https.addHeader("Content-Type", "application/json");
-            https.addHeader("Content-Length", "186");
-            https.addHeader("Auth0-Client", SS_OAUTH_AUTH0_CLIENT);
+            https->addHeader("Host", "auth.simplisafe.com");
+            https->addHeader("Content-Type", "application/json");
+            https->addHeader("Content-Length", "186");
+            https->addHeader("Auth0-Client", SS_OAUTH_AUTH0_CLIENT);
 
             DynamicJsonDocument doc(384);
             String payload;
@@ -201,11 +165,10 @@ class SS3AuthManager {
         }
 
         bool refreshAuthToken() {
-            https.begin(client, SS_OAUTH + String("/token"));
-            https.addHeader("Host", "auth.simplisafe.com");
-            https.addHeader("Content-Type", "application/json");
-            https.addHeader("Content-Length", "186");
-            https.addHeader("Auth0-Client", SS_OAUTH_AUTH0_CLIENT);
+            https->addHeader("Host", "auth.simplisafe.com");
+            https->addHeader("Content-Type", "application/json");
+            https->addHeader("Content-Length", "186");
+            https->addHeader("Auth0-Client", SS_OAUTH_AUTH0_CLIENT);
 
             DynamicJsonDocument doc(256);
             String payload;

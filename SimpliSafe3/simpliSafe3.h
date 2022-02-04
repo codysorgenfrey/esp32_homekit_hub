@@ -3,8 +3,8 @@
 
 #include "ssCommon.h"
 #include <ArduinoJson.h>
-#include <WiFiClient.h>
 #include <ESP8266HTTPClient.h>
+#include <WiFiClientSecure.h>
 #include "ss3AuthManager.h"
 
 class SimpliSafe3 {
@@ -14,7 +14,7 @@ class SimpliSafe3 {
         SS3AuthManager authManager;
 
     public:
-        inline bool init() { return authManager.init(); }
+        inline bool init(HTTPClient *https, WiFiClientSecure *client) { return authManager.init(https, client); }
 
         bool authorize(HardwareSerial *hwSerial = &Serial, unsigned long baud = 115200) {
             if (!authManager.isAuthorized()) {
@@ -49,7 +49,7 @@ class SimpliSafe3 {
         }
 
         DynamicJsonDocument request(String path, bool post = false, String payload = "") {
-            authManager.https.addHeader("Authorization", authManager.tokenType + " " + authManager.accessToken);
+            authManager.https->addHeader("Authorization", authManager.tokenType + " " + authManager.accessToken);
             return authManager.request(SS3API + path, post, payload);
         }
 
