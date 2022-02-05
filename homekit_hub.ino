@@ -119,13 +119,6 @@ void setup()
         client.setCertStore(&certStore);
         https.setReuse(false); // to reuse objects with new servers
 
-        // test connection
-        https.begin(client, "https://auth.simplisafe.com/oauth/token");
-        int res = https.GET();
-        HK_LOG_LINE("Google says: %i\n%s\n", res, https.getString().c_str());
-        https.end();
-        client.stop();
-
         boardStatus = STATUS_NO_OTA;
     }
     

@@ -22,7 +22,7 @@ class SimpliSafe3 {
                 SS_LOG_LINE("%s", authManager.getSS3AuthURL().c_str());
                 if (!hwSerial) hwSerial->begin(baud);
                 while (hwSerial->available() > 0) { hwSerial->read(); } // flush serial monitor
-                while (hwSerial->available() == 0) { ; } // wait for url input
+                while (hwSerial->available() == 0) { delay(100); } // wait for url input
                 String code = hwSerial->readString();
                 hwSerial->println();
                 if (authManager.getAuthToken(code)) {
@@ -48,9 +48,10 @@ class SimpliSafe3 {
             return userId;
         }
 
-        DynamicJsonDocument request(String path, bool post = false, String payload = "") {
+        DynamicJsonDocument request(String path, bool post = false, String payload = "", int docSize = 3074) {
+            authManager.https->begin(*authManager.client, SS3API + path);
             authManager.https->addHeader("Authorization", authManager.tokenType + " " + authManager.accessToken);
-            return authManager.request(SS3API + path, post, payload);
+            return authManager.request(post, payload, docSize);
         }
 
         DynamicJsonDocument getSubscriptions() {

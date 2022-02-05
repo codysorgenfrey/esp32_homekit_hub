@@ -7,7 +7,6 @@
 #include <ESP8266HTTPclient.h>
 #include <WiFiClientSecure.h>
 #include <ArduinoJson.h>
-#include "urlTools.h"
 #include <Regexp.h>
 #include <base64.h>
 #include <crypto.h>
@@ -102,7 +101,7 @@ class SS3AuthManager {
                 "?client_id=" + SS_OAUTH_CLIENT_ID +
                 "&scope=" + SS_OAUTH_SCOPE +
                 "&response_type=code" +
-                "&redirect_uri=" + urlencode(SS_OAUTH_REDIRECT_URI) +
+                "&redirect_uri=" + SS_OAUTH_REDIRECT_URI +
                 "&code_challenge_method=S256" +
                 "&code_challenge=" + codeChallenge +
                 "&audience=" + SS_OAUTH_AUDIENCE +
@@ -110,9 +109,7 @@ class SS3AuthManager {
             ;
         }
 
-        DynamicJsonDocument request(String url, bool post = false, String payload = "", int docSize = 3074) {
-            if (https->begin(*client, url)) SS_LOG_LINE("https began.");
-
+        DynamicJsonDocument request(bool post = false, String payload = "", int docSize = 3074) {
             int response;
             if (post)
                 response = https->POST(payload);
@@ -124,6 +121,8 @@ class SS3AuthManager {
                 SS_LOG_LINE("%s", https->getString().c_str());
                 return StaticJsonDocument<0>();
             }
+
+            SS_LOG_LINE("Response: %i", response);
             
             DynamicJsonDocument doc(docSize); // TODO: optimize size
             DeserializationError err = deserializeJson(doc, https->getStream());
@@ -141,22 +140,22 @@ class SS3AuthManager {
             return doc;
         }
 
-        bool getAuthToken(String code) {
+        bool getAuthToken(const String code) {
+            https->begin(*client, SS_OAUTH + String("/token"));
             https->addHeader("Host", "auth.simplisafe.com");
             https->addHeader("Content-Type", "application/json");
             https->addHeader("Content-Length", "186");
             https->addHeader("Auth0-Client", SS_OAUTH_AUTH0_CLIENT);
 
-            DynamicJsonDocument doc(384);
-            String payload;
-            doc["grant_type"] = "authorization_code";
-            doc["client_id"] = SS_OAUTH_CLIENT_ID;
-            doc["code_verifier"] = codeVerifier;
-            doc["code"] = code;
-            doc["redirect_uri"] = SS_OAUTH_REDIRECT_URI;
-            serializeJson(doc, payload);
+            String payload = "{\
+                'grant_type':'authorization_code',\
+                'client_id':'" + String(SS_OAUTH_CLIENT_ID) + "',\
+                'code_verifier':'" + codeVerifier + "',\
+                'code':'" + code + "',\
+                'redirect_uri':'" + SS_OAUTH_REDIRECT_URI + "'\
+            }";
             
-            DynamicJsonDocument res = request(SS_OAUTH + String("/token"), true, payload, 3074);
+            DynamicJsonDocument res = request(true, payload, 3074); // optimise size
 
             if (res.size() != 0)
                 return storeAuthToken(res);
@@ -165,19 +164,20 @@ class SS3AuthManager {
         }
 
         bool refreshAuthToken() {
+            https->begin(*client, SS_OAUTH + String("/token"));
             https->addHeader("Host", "auth.simplisafe.com");
             https->addHeader("Content-Type", "application/json");
             https->addHeader("Content-Length", "186");
             https->addHeader("Auth0-Client", SS_OAUTH_AUTH0_CLIENT);
 
             DynamicJsonDocument doc(256);
-            String payload;
-            doc["grant_type"] = "refresh_token";
-            doc["client_id"] = SS_OAUTH_CLIENT_ID;
-            doc["refresh_token"] = refreshToken;
-            serializeJson(doc, payload);
+            String payload = "{\
+                grant_type:refresh_token,\
+                client_id:" + String(SS_OAUTH_CLIENT_ID) + ",\
+                refresh_token:" + refreshToken + "\
+            }";
 
-            DynamicJsonDocument res = request(SS_OAUTH + String("/token"), true, payload);
+            DynamicJsonDocument res = request(true, payload, 3074); // optimise size
 
             if (res.size() != 0)
                 return storeAuthToken(res);
