@@ -32,6 +32,7 @@ class SS3AuthManager {
         bool init(HTTPClient *inHttps, WiFiClientSecure *inClient) {
             // init https stuff
             if (inHttps && inClient) {
+                SS_LOG_LINE("Provided https and client");
                 https = inHttps;
                 client = inClient;
             } else {
@@ -97,11 +98,14 @@ class SS3AuthManager {
             SS_LOG_LINE("Random String[%u]: %s", sizeof(randData), hex);
             SS_LOG_LINE("Code Verifier:     %s", codeVerifier.c_str());
             SS_LOG_LINE("Code Challenge:    %s", codeChallenge.c_str());
+            String ecnodedRedirect = String(SS_OAUTH_REDIRECT_URI);
+            ecnodedRedirect.replace(":", "%3A");
+            ecnodedRedirect.replace("/", "%2F");
             return String(SS_OAUTH_AUTH_URL) +
                 "?client_id=" + SS_OAUTH_CLIENT_ID +
                 "&scope=" + SS_OAUTH_SCOPE +
                 "&response_type=code" +
-                "&redirect_uri=" + SS_OAUTH_REDIRECT_URI +
+                "&redirect_uri=" + ecnodedRedirect +
                 "&code_challenge_method=S256" +
                 "&code_challenge=" + codeChallenge +
                 "&audience=" + SS_OAUTH_AUDIENCE +
@@ -109,7 +113,7 @@ class SS3AuthManager {
             ;
         }
 
-        DynamicJsonDocument request(bool post = false, String payload = "", int docSize = 3074) {
+        DynamicJsonDocument request(bool post = false, String payload = "", int docSize = 3072) {
             int response;
             if (post)
                 response = https->POST(payload);
@@ -117,15 +121,17 @@ class SS3AuthManager {
                 response = https->GET();
 
             if (response < 200 || response > 299) {
-                SS_LOG_LINE("Error, response: %i.", response);
-                SS_LOG_LINE("%s", https->getString().c_str());
+                SS_LOG_LINE("Error, code: %i.", response);
+                SS_LOG_LINE("Response: %s", https->getString().c_str());
                 return StaticJsonDocument<0>();
             }
 
             SS_LOG_LINE("Response: %i", response);
             
             DynamicJsonDocument doc(docSize); // TODO: optimize size
+            SS_LOG_LINE("Created doc of %i size", docSize);
             DeserializationError err = deserializeJson(doc, https->getStream());
+            SS_LOG_LINE("Desearialized stream.");
             if (err) {
                 SS_LOG_LINE("API request deserialization error: %s", err.f_str());
             } else {
@@ -141,24 +147,52 @@ class SS3AuthManager {
         }
 
         bool getAuthToken(const String code) {
-            https->begin(*client, SS_OAUTH + String("/token"));
+            if (https->begin(*client, SS_OAUTH + String("/token"))) SS_LOG_LINE("Begin https");
             https->addHeader("Host", "auth.simplisafe.com");
             https->addHeader("Content-Type", "application/json");
             https->addHeader("Content-Length", "186");
             https->addHeader("Auth0-Client", SS_OAUTH_AUTH0_CLIENT);
 
             String payload = "{\
-                'grant_type':'authorization_code',\
-                'client_id':'" + String(SS_OAUTH_CLIENT_ID) + "',\
-                'code_verifier':'" + codeVerifier + "',\
-                'code':'" + code + "',\
-                'redirect_uri':'" + SS_OAUTH_REDIRECT_URI + "'\
+                \"grant_type\":\"authorization_code\",\
+                \"client_id\":\"" + String(SS_OAUTH_CLIENT_ID) + "\",\
+                \"code_verifier\":\"" + codeVerifier + "\",\
+                \"code\":\"" + code + "\",\
+                \"redirect_uri\":\"" + SS_OAUTH_REDIRECT_URI + "\"\
             }";
+            payload.replace("\t", "");
+            payload.replace("\n", "");
+            payload.replace(" ", "");
+            SS_LOG_LINE("payload: %s", payload.c_str());
             
-            DynamicJsonDocument res = request(true, payload, 3074); // optimise size
+            int response = https->POST(payload);
 
-            if (res.size() != 0)
-                return storeAuthToken(res);
+            if (response < 200 || response > 299) {
+                SS_LOG_LINE("Error, code: %i.", response);
+                SS_LOG_LINE("Response: %s", https->getString().c_str());
+                return false;
+            }
+
+            SS_LOG_LINE("Response: %i", response);
+            
+            DynamicJsonDocument doc(3072); // TODO: optimize size
+            SS_LOG_LINE("Created doc of 3072 size");
+            DeserializationError err = deserializeJson(doc, https->getStream());
+            SS_LOG_LINE("Desearialized stream.");
+            if (err) {
+                SS_LOG_LINE("API request deserialization error: %s", err.f_str());
+            } else {
+                #if SS_DEBUG
+                    serializeJsonPretty(doc, Serial);
+                    SS_LOG_LINE("");
+                #endif
+            }
+
+            client->stop();
+            https->end();
+
+            if (doc.size() != 0)
+                return storeAuthToken(doc);
             else
                 return false;
         }
@@ -177,7 +211,7 @@ class SS3AuthManager {
                 refresh_token:" + refreshToken + "\
             }";
 
-            DynamicJsonDocument res = request(true, payload, 3074); // optimise size
+            DynamicJsonDocument res = request(true, payload, 3072); // optimise size
 
             if (res.size() != 0)
                 return storeAuthToken(res);

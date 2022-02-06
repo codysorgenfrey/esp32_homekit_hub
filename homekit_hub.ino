@@ -6,6 +6,7 @@
 #include <WiFiClientSecure.h>
 #include <time.h>
 #include <FS.h>
+#include <LittleFS.h> // NEED TO INSTALL TOOL AND UPLOAD DATA
 #include "switchAccessory.h"
 #include "securitySystemAccessory.h"
 #include "garageDoorAccessory.h"
@@ -58,7 +59,7 @@ void handleStatus() {
 }
 
 void setClock() {
-    configTime(-7 * 3600, 3600, "pool.ntp.org", "time.nist.gov");
+    configTime(-8 * 3600, 0, "pool.ntp.org", "time.nist.gov");
     time_t now = time(nullptr);
     while (now < 8 * 3600 * 2)
     {
@@ -66,13 +67,13 @@ void setClock() {
         now = time(nullptr);
     }
     struct tm timeinfo;
-    gmtime_r(&now, &timeinfo);
-    HK_LOG_LINE("Time now: %02i:%02i", timeinfo.tm_hour, timeinfo.tm_min);
+    localtime_r(&now, &timeinfo);
+    HK_LOG_LINE("Local time now: %02i:%02i %s", timeinfo.tm_hour % 12, timeinfo.tm_min, timeinfo.tm_hour / 12 >= 1.0f ? "PM" : "AM");
 }
 
 void printFS() {
     String str = "";
-    Dir dir = SPIFFS.openDir("/");
+    Dir dir = LittleFS.openDir("/");
     while (dir.next())
     {
         str += dir.fileName();
@@ -89,6 +90,7 @@ void setup()
         Serial.begin(115200);
         while (!Serial) { ; }; // wait for serial
     #endif
+    HK_LOG_LINE("Starting...");
 
     // Setup output LED
     pinMode(STATUS_LED, OUTPUT); // set up status LED
@@ -105,13 +107,13 @@ void setup()
     if (boardStatus == STATUS_NO_HTTPS) {
         // setup https certificates
         setClock();
-        if (!SPIFFS.begin()) {
-            HK_LOG_LINE("Error starting SPIFFS.");
+        if (!LittleFS.begin()) {
+            HK_LOG_LINE("Error starting LittleFS.");
         }
         #if HK_DEBUG
             printFS();
         #endif
-        int numCerts = certStore.initCertStore(SPIFFS, PSTR("/certs.idx"), PSTR("/certs.ar"));
+        int numCerts = certStore.initCertStore(LittleFS, PSTR("/certs.idx"), PSTR("/certs.ar"));
         if (numCerts == 0) {
             HK_LOG_LINE("Error reading in SSL certificates.");
         }
