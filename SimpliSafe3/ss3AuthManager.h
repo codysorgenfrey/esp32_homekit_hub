@@ -113,7 +113,16 @@ class SS3AuthManager {
             ;
         }
 
-        DynamicJsonDocument request(bool post = false, String payload = "", int docSize = 3072) {
+        DynamicJsonDocument request(String url, bool post = false, String payload = "", DynamicJsonDocument *headers = nullptr, int docSize = 3072) {
+            if (https->begin(*client, url)) SS_LOG_LINE("Connected to %s", url.c_str());
+
+            if (headers) {
+                for (int x = 0; x < headers->size(); x++) {
+                    https->addHeader(headers[x]["name"], headers[x]["value"]);
+                    SS_LOG_LINE("Added header: %s: %s", headers[x]["name"], headers[x]["value"]);
+                }
+            }
+
             int response;
             if (post)
                 response = https->POST(payload);
@@ -146,72 +155,54 @@ class SS3AuthManager {
             return doc;
         }
 
-        bool getAuthToken(const String code) {
-            if (https->begin(*client, SS_OAUTH + String("/token"))) SS_LOG_LINE("Begin https");
-            https->addHeader("Host", "auth.simplisafe.com");
-            https->addHeader("Content-Type", "application/json");
-            https->addHeader("Content-Length", "186");
-            https->addHeader("Auth0-Client", SS_OAUTH_AUTH0_CLIENT);
+        bool getAuthToken(String code) {
+            DynamicJsonDocument headers(256); // optimise size
+            headers[0]["name"] = "Host";
+            headers[0]["value"] = "auth.simplisafe.com";
+            headers[1]["name"] = "Content-Type";
+            headers[1]["value"] = "application/json";
+            headers[2]["name"] = "Content-Length";
+            headers[2]["value"] = 186;
+            headers[3]["name"] = "Auth0-Client";
+            headers[3]["value"] = SS_OAUTH_AUTH0_CLIENT;
 
-            String payload = "{\
-                \"grant_type\":\"authorization_code\",\
-                \"client_id\":\"" + String(SS_OAUTH_CLIENT_ID) + "\",\
-                \"code_verifier\":\"" + codeVerifier + "\",\
-                \"code\":\"" + code + "\",\
-                \"redirect_uri\":\"" + SS_OAUTH_REDIRECT_URI + "\"\
-            }";
-            payload.replace("\t", "");
-            payload.replace("\n", "");
-            payload.replace(" ", "");
-            SS_LOG_LINE("payload: %s", payload.c_str());
+            DynamicJsonDocument payloadDoc(256);
+            String payload;
+            payloadDoc["grant_type"] = "authorization_code";
+            payloadDoc["client_id"] = SS_OAUTH_CLIENT_ID;
+            payloadDoc["code_verifier"] = codeVerifier;
+            code.replace("\n", "");
+            payloadDoc["code"] = code;
+            payloadDoc["redirect_uri"] = SS_OAUTH_REDIRECT_URI;
+            serializeJson(payloadDoc, payload);
             
-            int response = https->POST(payload);
+            DynamicJsonDocument res = request(SS_OAUTH + String("/token"), true, payload, &headers, 3072);
 
-            if (response < 200 || response > 299) {
-                SS_LOG_LINE("Error, code: %i.", response);
-                SS_LOG_LINE("Response: %s", https->getString().c_str());
-                return false;
-            }
-
-            SS_LOG_LINE("Response: %i", response);
-            
-            DynamicJsonDocument doc(3072); // TODO: optimize size
-            SS_LOG_LINE("Created doc of 3072 size");
-            DeserializationError err = deserializeJson(doc, https->getStream());
-            SS_LOG_LINE("Desearialized stream.");
-            if (err) {
-                SS_LOG_LINE("API request deserialization error: %s", err.f_str());
-            } else {
-                #if SS_DEBUG
-                    serializeJsonPretty(doc, Serial);
-                    SS_LOG_LINE("");
-                #endif
-            }
-
-            client->stop();
-            https->end();
-
-            if (doc.size() != 0)
-                return storeAuthToken(doc);
+            if (res.size() != 0)
+                return storeAuthToken(res);
             else
                 return false;
         }
 
         bool refreshAuthToken() {
-            https->begin(*client, SS_OAUTH + String("/token"));
-            https->addHeader("Host", "auth.simplisafe.com");
-            https->addHeader("Content-Type", "application/json");
-            https->addHeader("Content-Length", "186");
-            https->addHeader("Auth0-Client", SS_OAUTH_AUTH0_CLIENT);
+            DynamicJsonDocument headers(256); // optimise size
+            headers[0]["name"] = "Host";
+            headers[0]["value"] = "auth.simplisafe.com";
+            headers[1]["name"] = "Content-Type";
+            headers[1]["value"] = "application/json";
+            headers[2]["name"] = "Content-Length";
+            headers[2]["value"] = 186;
+            headers[3]["name"] = "Auth0-Client";
+            headers[3]["value"] = SS_OAUTH_AUTH0_CLIENT;
 
-            DynamicJsonDocument doc(256);
-            String payload = "{\
-                grant_type:refresh_token,\
-                client_id:" + String(SS_OAUTH_CLIENT_ID) + ",\
-                refresh_token:" + refreshToken + "\
-            }";
+            DynamicJsonDocument payloadDoc(256);
+            String payload;
+            payloadDoc["grant_type"] = "refresh_token";
+            payloadDoc["client_id"] = SS_OAUTH_CLIENT_ID;
+            payloadDoc["refresh_token"] = refreshToken;
+            serializeJson(payloadDoc, payload);
 
-            DynamicJsonDocument res = request(true, payload, 3072); // optimise size
+            DynamicJsonDocument res = request(SS_OAUTH + String("/token"), true, payload, &headers); // optimise size
 
             if (res.size() != 0)
                 return storeAuthToken(res);

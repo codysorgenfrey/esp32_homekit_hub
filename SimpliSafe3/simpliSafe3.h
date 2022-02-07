@@ -49,9 +49,10 @@ class SimpliSafe3 {
         }
 
         DynamicJsonDocument request(String path, bool post = false, String payload = "", int docSize = 3072) {
-            authManager.https->begin(*authManager.client, SS3API + path);
-            authManager.https->addHeader("Authorization", authManager.tokenType + " " + authManager.accessToken);
-            return authManager.request(post, payload, docSize);
+            DynamicJsonDocument headers(128);
+            headers["Authorization"] = authManager.tokenType + " " + authManager.accessToken;
+
+            return authManager.request(SS3API + path, post, payload, &headers, docSize);
         }
 
         DynamicJsonDocument getSubscriptions() {
