@@ -31,8 +31,8 @@
 
 // Logging
 #if HK_DEBUG
-#define HK_LOG(message, ...) XPGM_PRINTF(">>> [%7d][%4fkb] HomeKit Hub: " message , millis(), (system_get_free_heap_size() * 0.001f), ##__VA_ARGS__)
-#define HK_LOG_LINE(message, ...) XPGM_PRINTF(">>> [%7d][%4fkb] HomeKit Hub: " message "\n", millis(), (system_get_free_heap_size() * 0.001f), ##__VA_ARGS__)
+#define HK_LOG(message, ...) XPGM_PRINTF(">>> [%7d][%.2fkb] HomeKit Hub: " message , millis(), (system_get_free_heap_size() * 0.001f), ##__VA_ARGS__)
+#define HK_LOG_LINE(message, ...) XPGM_PRINTF(">>> [%7d][%.2fkb] HomeKit Hub: " message "\n", millis(), (system_get_free_heap_size() * 0.001f), ##__VA_ARGS__)
 #else
 #define HK_LOG(message, ...)
 #define HK_LOG_LINE(message, ...)

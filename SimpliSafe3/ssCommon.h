@@ -17,10 +17,12 @@
 #define SS_OAUTH_SCOPE "offline_access%20email%20openid%20https://api.simplisafe.com/scopes/user:platform"
 #define SS_OAUTH_AUDIENCE "https://api.simplisafe.com/"
 
+#define SS_USER_DATA_FILE "/SS_USER_DATA.json"
+
 // Logging
 #if SS_DEBUG
-#define SS_LOG(message, ...) XPGM_PRINTF(">>> [%7d][%4fkb] SimpliSafe: " message , millis(), (system_get_free_heap_size() * 0.001f), ##__VA_ARGS__)
-#define SS_LOG_LINE(message, ...) XPGM_PRINTF(">>> [%7d][%4fkb] SimpliSafe: " message "\n", millis(), (system_get_free_heap_size() * 0.001f), ##__VA_ARGS__)
+#define SS_LOG(message, ...) XPGM_PRINTF(">>> [%7d][%.2fkb] SimpliSafe: " message , millis(), (system_get_free_heap_size() * 0.001f), ##__VA_ARGS__)
+#define SS_LOG_LINE(message, ...) XPGM_PRINTF(">>> [%7d][%.2fkb] SimpliSafe: " message "\n", millis(), (system_get_free_heap_size() * 0.001f), ##__VA_ARGS__)
 #else
 #define SS_LOG(message, ...)
 #define SS_LOG_LINE(message, ...)

@@ -120,6 +120,7 @@ void setup()
         HK_LOG_LINE("Read in %i certificates.", numCerts);
         client.setCertStore(&certStore);
         https.setReuse(false); // to reuse objects with new servers
+        LittleFS.end();
 
         boardStatus = STATUS_NO_OTA;
     }
@@ -160,7 +161,7 @@ void setup()
 
         // Connect to Homekit
         if (boardStatus != STATUS_ERROR) {
-            // homekit_server_reset();
+            homekit_server_reset();
             arduino_homekit_setup(&config);
             boardStatus = STATUS_OK;
         }

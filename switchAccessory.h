@@ -8,6 +8,8 @@
 
 extern "C" homekit_characteristic_t switchOn;
 
+#define WEMO_API "http://" WEMO_IP ":49153/upnp/control/basicevent1"
+
 HTTPClient *switchHttps;
 WiFiClientSecure *switchClient;
 
@@ -18,7 +20,7 @@ void setSwitch(const homekit_value_t value) {
     String stringState = value.bool_value ? "1" : "0";
     String postData = "<?xml version=\"1.0\" encoding=\"utf-8\"?><s:Envelope xmlns:s=\"http://schemas.xmlsoap.org/soap/envelope/\" s:encodingStyle=\"http://schemas.xmlsoap.org/soap/encoding/\"><s:Body><u:SetBinaryState xmlns:u=\"urn:Belkin:service:basicevent:1\"><BinaryState>" + stringState + "</BinaryState></u:SetBinaryState></s:Body></s:Envelope>";
     
-    switchHttps->begin(*switchClient, (String) "http://" + WEMO_IP + ":49153/upnp/control/basicevent1");
+    switchHttps->begin(*switchClient, WEMO_API);
     switchHttps->addHeader("Content-Length", (String)postData.length());
     switchHttps->addHeader("Content-Type", "text/xml; charset=\"utf-8\"");
     switchHttps->addHeader("SOAPACTION", "\"urn:Belkin:service:basicevent:1#SetBinaryState\"");

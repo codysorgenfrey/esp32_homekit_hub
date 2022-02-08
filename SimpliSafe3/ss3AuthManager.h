@@ -7,7 +7,6 @@
 #include <ESP8266HTTPclient.h>
 #include <WiFiClientSecure.h>
 #include <ArduinoJson.h>
-#include <Regexp.h>
 #include <base64.h>
 #include <crypto.h>
 #include <SHA256.h>
@@ -16,7 +15,6 @@
 
 class SS3AuthManager {
     private:
-        uint8_t randData[32]; // 32 bytes, u_int8_t is 1 byte
         String refreshToken;
         String codeVerifier;
         String codeChallenge;
@@ -43,15 +41,15 @@ class SS3AuthManager {
             https->useHTTP10(true); // for ArduinoJson
             https->setReuse(false); // to reuse connection
 
-            // read in eeprom for accessToken, refreshToken, codeVerifier
-
-            if (codeVerifier.length() == 0) {
+            if(!readUserData()) {
+                uint8_t randData[32]; // 32 bytes, u_int8_t is 1 byte
                 ESP.random(randData, SHA256_LEN);
                 codeVerifier = base64URLEncode(randData);
+
+                uint8_t hashOut[SHA256_LEN];
+                sha256(codeVerifier.c_str(), hashOut);
+                codeChallenge = base64URLEncode(hashOut);
             }
-            uint8_t hashOut[SHA256_LEN];
-            sha256(codeVerifier.c_str(), hashOut);
-            codeChallenge = base64URLEncode(hashOut);
 
             return true;
         }
@@ -60,21 +58,11 @@ class SS3AuthManager {
             base64 bs;
             String str = bs.encode(buffer, SHA256_LEN);
 
-            char buff[str.length()];
-            str.toCharArray(buff, sizeof(buff));
-            MatchState ms(buff);
-            ms.GlobalReplace("\+", "-");
-            ms.GlobalReplace("\/", "_");
-            ms.GlobalReplace("=", "");
+            str.replace("+", "-");
+            str.replace("/", "_");
+            str.replace("=", "");
             
-            return String(buff);
-        }
-
-        char *btoh(char *dest, uint8_t *src, int len) {
-            char *d = dest;
-            while (len--)
-                sprintf(d, "%02x", (unsigned char)*src++), d += 2;
-            return dest;
+            return str;
         }
 
         void sha256(const char *inBuff, uint8_t *outBuff) {
@@ -85,19 +73,18 @@ class SS3AuthManager {
         }
 
         bool isAuthorized() {
-            return refreshToken.length() != 0;
+            return accessToken.length() != 0;
         }
 
         bool isAuthenticated() {
-            // return millis() < expiry; // fix this to work with millis
+            unsigned long now = millis();
+            unsigned long timeElapsed = max(now, tokenIssueMS) - min(now, tokenIssueMS);
+            return timeElapsed < expiresIn && this->refreshToken.length() != 0;
         }
 
         String getSS3AuthURL() {
-            char hex[sizeof(randData) * 2];
-            btoh(hex, randData, sizeof(randData));
-            SS_LOG_LINE("Random String[%u]: %s", sizeof(randData), hex);
             SS_LOG_LINE("Code Verifier:     %s", codeVerifier.c_str());
-            SS_LOG_LINE("Code Challenge:    %s", codeChallenge.c_str());
+            SS_LOG_LINE("Code Challenge:    %s", codeChallenge.c_str());    
             String ecnodedRedirect = String(SS_OAUTH_REDIRECT_URI);
             ecnodedRedirect.replace(":", "%3A");
             ecnodedRedirect.replace("/", "%2F");
@@ -113,15 +100,18 @@ class SS3AuthManager {
             ;
         }
 
-        DynamicJsonDocument request(String url, bool post = false, String payload = "", DynamicJsonDocument *headers = nullptr, int docSize = 3072) {
+        DynamicJsonDocument request(String url, bool post = false, String payload = "", const DynamicJsonDocument &headers = StaticJsonDocument<0>(), int docSize = 3072) {
+            LittleFS.begin(); // for SSL certs
             if (https->begin(*client, url)) SS_LOG_LINE("Connected to %s", url.c_str());
 
-            if (headers) {
-                for (int x = 0; x < headers->size(); x++) {
+            if (headers.size() != 0) {
+                for (int x = 0; x < headers.size(); x++) {
                     https->addHeader(headers[x]["name"], headers[x]["value"]);
-                    SS_LOG_LINE("Added header: %s: %s", headers[x]["name"], headers[x]["value"]);
+                    SS_LOG_LINE("Header added... %s: %s", headers[x]["name"].as<const char*>(), headers[x]["value"].as<const char*>());
                 }
             }
+
+            SS_LOG_LINE("Payload: %s", payload.c_str());
 
             int response;
             if (post)
@@ -137,7 +127,7 @@ class SS3AuthManager {
 
             SS_LOG_LINE("Response: %i", response);
             
-            DynamicJsonDocument doc(docSize); // TODO: optimize size
+            DynamicJsonDocument doc(docSize);
             SS_LOG_LINE("Created doc of %i size", docSize);
             DeserializationError err = deserializeJson(doc, https->getStream());
             SS_LOG_LINE("Desearialized stream.");
@@ -146,27 +136,28 @@ class SS3AuthManager {
             } else {
                 #if SS_DEBUG
                     serializeJsonPretty(doc, Serial);
-                    SS_LOG_LINE("");
+                    Serial.println("");
                 #endif
             }
 
             client->stop();
             https->end();
+            LittleFS.end();
             return doc;
         }
 
         bool getAuthToken(String code) {
-            DynamicJsonDocument headers(256); // optimise size
+            StaticJsonDocument<256> headers; // optimise size
             headers[0]["name"] = "Host";
             headers[0]["value"] = "auth.simplisafe.com";
             headers[1]["name"] = "Content-Type";
             headers[1]["value"] = "application/json";
             headers[2]["name"] = "Content-Length";
-            headers[2]["value"] = 186;
+            headers[2]["value"] = "186";
             headers[3]["name"] = "Auth0-Client";
             headers[3]["value"] = SS_OAUTH_AUTH0_CLIENT;
 
-            DynamicJsonDocument payloadDoc(256);
+            StaticJsonDocument<256> payloadDoc;
             String payload;
             payloadDoc["grant_type"] = "authorization_code";
             payloadDoc["client_id"] = SS_OAUTH_CLIENT_ID;
@@ -176,7 +167,7 @@ class SS3AuthManager {
             payloadDoc["redirect_uri"] = SS_OAUTH_REDIRECT_URI;
             serializeJson(payloadDoc, payload);
             
-            DynamicJsonDocument res = request(SS_OAUTH + String("/token"), true, payload, &headers, 3072);
+            DynamicJsonDocument res = request(SS_OAUTH + String("/token"), true, payload, headers, 3072);
 
             if (res.size() != 0)
                 return storeAuthToken(res);
@@ -185,24 +176,24 @@ class SS3AuthManager {
         }
 
         bool refreshAuthToken() {
-            DynamicJsonDocument headers(256); // optimise size
+            StaticJsonDocument<256> headers; // optimise size
             headers[0]["name"] = "Host";
             headers[0]["value"] = "auth.simplisafe.com";
             headers[1]["name"] = "Content-Type";
             headers[1]["value"] = "application/json";
             headers[2]["name"] = "Content-Length";
-            headers[2]["value"] = 186;
+            headers[2]["value"] = "186";
             headers[3]["name"] = "Auth0-Client";
             headers[3]["value"] = SS_OAUTH_AUTH0_CLIENT;
 
-            DynamicJsonDocument payloadDoc(256);
+            StaticJsonDocument<256> payloadDoc;
             String payload;
             payloadDoc["grant_type"] = "refresh_token";
             payloadDoc["client_id"] = SS_OAUTH_CLIENT_ID;
             payloadDoc["refresh_token"] = refreshToken;
             serializeJson(payloadDoc, payload);
 
-            DynamicJsonDocument res = request(SS_OAUTH + String("/token"), true, payload, &headers); // optimise size
+            DynamicJsonDocument res = request(SS_OAUTH + String("/token"), true, payload, headers, 3072);
 
             if (res.size() != 0)
                 return storeAuthToken(res);
@@ -210,15 +201,83 @@ class SS3AuthManager {
                 return false;
         }
 
-        bool storeAuthToken(DynamicJsonDocument doc) {
+        bool storeAuthToken(const DynamicJsonDocument &doc) {
             accessToken = doc["access_token"].as<String>();
             refreshToken = doc["refresh_token"].as<String>();
             tokenType = doc["token_type"].as<String>();
             tokenIssueMS = millis();
-            expiresIn = doc["expires_in"].as<unsigned long>();
+            expiresIn = doc["expires_in"].as<unsigned long>() * 1000;
 
-            // store accessToken, codeVerifier, refreshToken in eeprom here
+            return writeUserData();
+        }
 
+        bool writeUserData() {
+            // store accessToken, codeVerifier, refreshToken here
+            DynamicJsonDocument userData(1536);
+            SS_LOG_LINE("Created user data object");
+
+            userData["accessToken"] = accessToken;
+            userData["refreshToken"] = refreshToken;
+            userData["codeVerifier"] = codeVerifier;
+
+            if (!LittleFS.begin()) {
+                SS_LOG_LINE("Error starting LittleFS.");
+                return false;
+            }
+
+            File file = LittleFS.open(SS_USER_DATA_FILE, "w");
+            if (!file) {
+                SS_LOG_LINE("Failed to open %s.", SS_USER_DATA_FILE);
+                LittleFS.end();
+                return false;
+            }
+
+            if (serializeJson(userData, file) == 0) {
+                SS_LOG_LINE("Failed to write data to %s.", SS_USER_DATA_FILE);
+                file.close();
+                LittleFS.end();
+                return false;
+            }
+
+            file.close();
+            LittleFS.end();
+            return true;
+        }
+
+        bool readUserData() {
+            if (!LittleFS.begin()) {
+                SS_LOG_LINE("Error starting LittleFS.");
+                return false;
+            }
+
+            File file = LittleFS.open(SS_USER_DATA_FILE, "r");
+            if (!file) {
+                SS_LOG_LINE("Failed to open %s.", SS_USER_DATA_FILE);
+                LittleFS.end();
+                return false;
+            }
+
+            DynamicJsonDocument userData(1536);
+            DeserializationError err = deserializeJson(userData, file);
+            if (err) {
+                SS_LOG_LINE("Error deserializing %s.", SS_USER_DATA_FILE);
+                file.close();
+                LittleFS.end();
+                return false;
+            }
+
+            accessToken = userData["accessToken"].as<String>();
+            refreshToken = userData["refreshToken"].as<String>();
+            codeVerifier = userData["codeVerifier"].as<String>();
+
+            SS_LOG_LINE("Found user data file...");
+            #if SS_DEBUG
+                serializeJsonPretty(userData, Serial);
+                Serial.println("");
+            #endif
+
+            file.close();
+            LittleFS.end();
             return true;
         }
 };
