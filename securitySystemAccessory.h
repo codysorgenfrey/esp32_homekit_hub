@@ -49,9 +49,9 @@ homekit_value_t getSystemCurState() {
     return ssCurState.value;
 }
 
-bool initSecuritySystemAccessory(HTTPClient *https, WiFiClientSecure *client) {
+bool initSecuritySystemAccessory() {
     // login
-    bool success = ss.init(https, client);
+    bool success = ss.init();
     if (success) {
         success = ss.authorize(&Serial, 115200);
     }

@@ -2,20 +2,11 @@
 #include <arduino_homekit_server.h> // need to disable logging in homekit_debug.h
 #include <ArduinoOTA.h>
 #include <ESP8266WiFi.h>
-#include <ESP8266HTTPClient.h>
-#include <WiFiClientSecure.h>
-#include <time.h>
-#include <FS.h>
-#include <LittleFS.h> // NEED TO INSTALL TOOL AND UPLOAD DATA
 #include "switchAccessory.h"
 #include "securitySystemAccessory.h"
 #include "garageDoorAccessory.h"
 
 extern "C" homekit_server_config_t config;
-
-HTTPClient https;
-WiFiClientSecure client;
-CertStore certStore;
 
 unsigned long int boardStatus = STATUS_NO_WIFI;
 
@@ -23,7 +14,6 @@ int statusBlinkPattern[7] = {
     10, // Error
     0,  // ok
     1,  // no wifi
-    1,  // no https
     2,  // No OTA
     3,  // No Homkit
     3   // OTA progress
@@ -32,7 +22,6 @@ int statusPatternRate[7] = {
     2000, // error
     1000, // ok
     1000, // no wifi
-    1000, // no https
     1000, // No OTA
     1000, // No homekit
     2000  // OTA progress
@@ -58,32 +47,6 @@ void handleStatus() {
     }
 }
 
-void setClock() {
-    configTime(-8 * 3600, 0, "pool.ntp.org", "time.nist.gov");
-    time_t now = time(nullptr);
-    while (now < 8 * 3600 * 2)
-    {
-        delay(500);
-        now = time(nullptr);
-    }
-    struct tm timeinfo;
-    localtime_r(&now, &timeinfo);
-    HK_LOG_LINE("Local time now: %02i:%02i %s", timeinfo.tm_hour % 12, timeinfo.tm_min, timeinfo.tm_hour / 12 >= 1.0f ? "PM" : "AM");
-}
-
-void printFS() {
-    String str = "";
-    Dir dir = LittleFS.openDir("/");
-    while (dir.next())
-    {
-        str += dir.fileName();
-        str += " / ";
-        str += dir.fileSize();
-        str += "\r\n";
-    }
-    HK_LOG_LINE("%s", str.c_str());
-}
-
 void setup()
 {
     #if HK_DEBUG || SS_DEBUG
@@ -102,27 +65,6 @@ void setup()
         // Connect to wifi
         WiFi.mode(WIFI_STA);
         WiFi.begin(WIFI_SSID, WIFI_PASS);
-    }
-
-    if (boardStatus == STATUS_NO_HTTPS) {
-        // setup https certificates
-        setClock();
-        if (!LittleFS.begin()) {
-            HK_LOG_LINE("Error starting LittleFS.");
-        }
-        #if HK_DEBUG
-            printFS();
-        #endif
-        int numCerts = certStore.initCertStore(LittleFS, PSTR("/certs.idx"), PSTR("/certs.ar"));
-        if (numCerts == 0) {
-            HK_LOG_LINE("Error reading in SSL certificates.");
-        }
-        HK_LOG_LINE("Read in %i certificates.", numCerts);
-        client.setCertStore(&certStore);
-        https.setReuse(false); // to reuse objects with new servers
-        LittleFS.end();
-
-        boardStatus = STATUS_NO_OTA;
     }
     
     if (boardStatus == STATUS_NO_OTA) {
@@ -151,10 +93,10 @@ void setup()
         
     if (boardStatus == STATUS_NO_HOMEKIT) {
         // init accessories
-        boardStatus = initSwitchAccessory(&https, &client) ? STATUS_NO_HOMEKIT : STATUS_ERROR;
+        boardStatus = initSwitchAccessory() ? STATUS_NO_HOMEKIT : STATUS_ERROR;
 
         if (boardStatus != STATUS_ERROR)
-            boardStatus = initSecuritySystemAccessory(&https, &client) ? STATUS_NO_HOMEKIT : STATUS_ERROR;
+            boardStatus = initSecuritySystemAccessory() ? STATUS_NO_HOMEKIT : STATUS_ERROR;
 
         if (boardStatus != STATUS_ERROR)
             boardStatus = initGarageDoorAccessory() ? STATUS_NO_HOMEKIT : STATUS_ERROR;
@@ -180,7 +122,7 @@ void loop()
     if (boardStatus == STATUS_NO_WIFI) {
         delay(100);
         if (WiFi.status() == WL_CONNECTED) {
-            boardStatus = STATUS_NO_HTTPS;
+            boardStatus = STATUS_NO_OTA;
             setup();
         }
         return;

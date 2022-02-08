@@ -1,8 +1,6 @@
 #ifndef __SS3AUTHMANAGER_H__
 #define __SS3AUTHMANAGER_H__
 
-// TODO: store account in eeprom
-
 #include "ssCommon.h"
 #include <ESP8266HTTPclient.h>
 #include <WiFiClientSecure.h>
@@ -10,8 +8,37 @@
 #include <base64.h>
 #include <crypto.h>
 #include <SHA256.h>
+#include <FS.h>
+#include <LittleFS.h>
+#include <time.h>
 
 #define SHA256_LEN 32
+
+void setClock() {
+    configTime(-8 * 3600, 0, "pool.ntp.org", "time.nist.gov");
+    time_t now = time(nullptr);
+    while (now < 8 * 3600 * 2)
+    {
+        delay(500);
+        now = time(nullptr);
+    }
+    struct tm timeinfo;
+    localtime_r(&now, &timeinfo);
+    SS_LOG_LINE("Local time now: %02i:%02i %s", timeinfo.tm_hour % 12, timeinfo.tm_min, timeinfo.tm_hour / 12 >= 1.0f ? "PM" : "AM");
+}
+
+void printFS() {
+    String str = "";
+    Dir dir = LittleFS.openDir("/");
+    while (dir.next())
+    {
+        str += dir.fileName();
+        str += " / ";
+        str += dir.fileSize();
+        str += "\r\n";
+    }
+    SS_LOG_LINE("File system: %s", str.c_str());
+}
 
 class SS3AuthManager {
     private:
@@ -22,24 +49,30 @@ class SS3AuthManager {
         unsigned long expiresIn;
 
     public:
-        HTTPClient *https;
-        WiFiClientSecure *client;
+        HTTPClient https;
+        WiFiClientSecure client;
+        CertStore certStore;
         String tokenType = "Bearer";
         String accessToken;
 
-        bool init(HTTPClient *inHttps, WiFiClientSecure *inClient) {
+        bool init() {
             // init https stuff
-            if (inHttps && inClient) {
-                SS_LOG_LINE("Provided https and client");
-                https = inHttps;
-                client = inClient;
-            } else {
-                SS_LOG_LINE("No https setup.");
-                return false;
+            setClock();
+            if (!LittleFS.begin()) {
+                SS_LOG_LINE("Error starting LittleFS.");
             }
-            
-            https->useHTTP10(true); // for ArduinoJson
-            https->setReuse(false); // to reuse connection
+            #if SS_DEBUG
+                printFS();
+            #endif
+            int numCerts = certStore.initCertStore(LittleFS, PSTR("/certs.idx"), PSTR("/certs.ar"));
+            if (numCerts == 0) {
+                SS_LOG_LINE("Error reading in SSL certificates.");
+            }
+            SS_LOG_LINE("Read in %i certificates.", numCerts);
+            client.setCertStore(&certStore);
+            https.useHTTP10(true); // for ArduinoJson
+            https.setReuse(false); // to reuse objects with new servers
+            LittleFS.end();
 
             if(!readUserData()) {
                 uint8_t randData[32]; // 32 bytes, u_int8_t is 1 byte
@@ -102,11 +135,11 @@ class SS3AuthManager {
 
         DynamicJsonDocument request(String url, bool post = false, String payload = "", const DynamicJsonDocument &headers = StaticJsonDocument<0>(), int docSize = 3072) {
             LittleFS.begin(); // for SSL certs
-            if (https->begin(*client, url)) SS_LOG_LINE("Connected to %s", url.c_str());
+            if (https.begin(client, url)) SS_LOG_LINE("Connected to %s", url.c_str());
 
             if (headers.size() != 0) {
                 for (int x = 0; x < headers.size(); x++) {
-                    https->addHeader(headers[x]["name"], headers[x]["value"]);
+                    https.addHeader(headers[x]["name"], headers[x]["value"]);
                     SS_LOG_LINE("Header added... %s: %s", headers[x]["name"].as<const char*>(), headers[x]["value"].as<const char*>());
                 }
             }
@@ -115,13 +148,13 @@ class SS3AuthManager {
 
             int response;
             if (post)
-                response = https->POST(payload);
+                response = https.POST(payload);
             else
-                response = https->GET();
+                response = https.GET();
 
             if (response < 200 || response > 299) {
                 SS_LOG_LINE("Error, code: %i.", response);
-                SS_LOG_LINE("Response: %s", https->getString().c_str());
+                SS_LOG_LINE("Response: %s", https.getString().c_str());
                 return StaticJsonDocument<0>();
             }
 
@@ -129,7 +162,7 @@ class SS3AuthManager {
             
             DynamicJsonDocument doc(docSize);
             SS_LOG_LINE("Created doc of %i size", docSize);
-            DeserializationError err = deserializeJson(doc, https->getStream());
+            DeserializationError err = deserializeJson(doc, https.getStream());
             SS_LOG_LINE("Desearialized stream.");
             if (err) {
                 SS_LOG_LINE("API request deserialization error: %s", err.f_str());
@@ -140,8 +173,8 @@ class SS3AuthManager {
                 #endif
             }
 
-            client->stop();
-            https->end();
+            client.stop();
+            https.end();
             LittleFS.end();
             return doc;
         }
@@ -238,6 +271,8 @@ class SS3AuthManager {
                 LittleFS.end();
                 return false;
             }
+
+            SS_LOG_LINE("Wrote to user data file.");
 
             file.close();
             LittleFS.end();

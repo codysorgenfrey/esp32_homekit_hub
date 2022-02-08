@@ -3,8 +3,6 @@
 
 #include "ssCommon.h"
 #include <ArduinoJson.h>
-#include <ESP8266HTTPClient.h>
-#include <WiFiClientSecure.h>
 #include "ss3AuthManager.h"
 
 class SimpliSafe3 {
@@ -14,7 +12,7 @@ class SimpliSafe3 {
         SS3AuthManager authManager;
 
     public:
-        inline bool init(HTTPClient *https, WiFiClientSecure *client) { return authManager.init(https, client); }
+        inline bool init() { return authManager.init(); }
 
         bool authorize(HardwareSerial *hwSerial = &Serial, unsigned long baud = 115200) {
             if (!authManager.isAuthorized()) {

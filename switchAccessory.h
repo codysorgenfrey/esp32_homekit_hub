@@ -3,15 +3,12 @@
 
 #include "common.h"
 #include <homekit/characteristics.h>
+#include <WiFiClient.h>
 #include <ESP8266HTTPClient.h>
-#include <WiFiClientSecure.h>
 
 extern "C" homekit_characteristic_t switchOn;
 
 #define WEMO_API "http://" WEMO_IP ":49153/upnp/control/basicevent1"
-
-HTTPClient *switchHttps;
-WiFiClientSecure *switchClient;
 
 void setSwitch(const homekit_value_t value) {
     // tell switch what homekit says
@@ -20,13 +17,15 @@ void setSwitch(const homekit_value_t value) {
     String stringState = value.bool_value ? "1" : "0";
     String postData = "<?xml version=\"1.0\" encoding=\"utf-8\"?><s:Envelope xmlns:s=\"http://schemas.xmlsoap.org/soap/envelope/\" s:encodingStyle=\"http://schemas.xmlsoap.org/soap/encoding/\"><s:Body><u:SetBinaryState xmlns:u=\"urn:Belkin:service:basicevent:1\"><BinaryState>" + stringState + "</BinaryState></u:SetBinaryState></s:Body></s:Envelope>";
     
-    switchHttps->begin(*switchClient, WEMO_API);
-    switchHttps->addHeader("Content-Length", (String)postData.length());
-    switchHttps->addHeader("Content-Type", "text/xml; charset=\"utf-8\"");
-    switchHttps->addHeader("SOAPACTION", "\"urn:Belkin:service:basicevent:1#SetBinaryState\"");
+    WiFiClient client;
+    HTTPClient http;
+    http.begin(client, WEMO_API);
+    http.addHeader("Content-Length", (String)postData.length());
+    http.addHeader("Content-Type", "text/xml; charset=\"utf-8\"");
+    http.addHeader("SOAPACTION", "\"urn:Belkin:service:basicevent:1#SetBinaryState\"");
     
     HK_LOG_LINE("Sending POST request to Wemo.");
-    int httpCode = switchHttps->POST(postData);
+    int httpCode = http.POST(postData);
 
     // If HTTP code is not negative, the POST succeeded
     if (httpCode > 0) {
@@ -40,8 +39,8 @@ void setSwitch(const homekit_value_t value) {
         HK_LOG_LINE("POST request error.");
     }
 
-    switchHttps->end(); // these might kill the WiFi... we'll see
-    switchClient->stop();
+    http.end();
+    client.stop();
 }
 
 homekit_value_t getSwitch() {
@@ -52,18 +51,18 @@ homekit_value_t getSwitch() {
     
     WiFiClient client;
     HTTPClient http;
-    switchHttps->begin(*switchClient, (String) "http://" + WEMO_IP + ":49153/upnp/control/basicevent1");
-    switchHttps->addHeader("Content-Length", (String)postData.length());
-    switchHttps->addHeader("Content-Type", "text/xml; charset=\"utf-8\"");
-    switchHttps->addHeader("SOAPACTION", "\"urn:Belkin:service:basicevent:1#GetBinaryState\"");
+    http.begin(client, WEMO_API);
+    http.addHeader("Content-Length", String(postData.length()));
+    http.addHeader("Content-Type", "text/xml; charset=\"utf-8\"");
+    http.addHeader("SOAPACTION", "\"urn:Belkin:service:basicevent:1#GetBinaryState\"");
     
     HK_LOG_LINE("Sending POST request to Wemo.");
-    int httpCode = switchHttps->POST(postData);
+    int httpCode = http.POST(postData);
 
     // If HTTP code is not negative, the POST succeeded
     if (httpCode > 0) {
         if (httpCode == HTTP_CODE_OK) {
-            const String &payload = switchHttps->getString();
+            const String &payload = http.getString();
             if (payload.indexOf("<BinaryState>1</BinaryState>") > 0) {
                 HK_LOG_LINE("Wemo switch on.");
                 switchOn.value.bool_value = true;
@@ -78,15 +77,12 @@ homekit_value_t getSwitch() {
         HK_LOG_LINE("POST request error.");
     }
 
-    switchHttps->end();
-    switchClient->stop();
+    http.end();
+    client.stop();
     return switchOn.value;
 }
 
-bool initSwitchAccessory(HTTPClient *https, WiFiClientSecure *client) {
-    switchHttps = https;
-    switchClient = client;
-
+bool initSwitchAccessory() {
     switchOn.setter = setSwitch;
     switchOn.getter = getSwitch;
 
