@@ -1,10 +1,8 @@
-# ESP8266 HomeKit Hub
+# ESP32 HomeKit Hub
 
 ## Dependencies
 
-1. ArduinoJson 6.19.1
-2. Crypto 0.2.0
-3. HomeKit-ESP8266 1.4.0
+1. 
 
 ## Uploading certs for SSL into SPIFFS
 

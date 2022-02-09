@@ -2,89 +2,55 @@
 #define __SS3AUTHMANAGER_H__
 
 #include "ssCommon.h"
-#include <ESP8266HTTPclient.h>
+#include <HTTPclient.h>
 #include <WiFiClientSecure.h>
 #include <ArduinoJson.h>
 #include <base64.h>
-#include <crypto.h>
 #include <SHA256.h>
-#include <FS.h>
 #include <LittleFS.h>
 #include <time.h>
 
 #define SHA256_LEN 32
 
-void setClock() {
-    configTime(-8 * 3600, 0, "pool.ntp.org", "time.nist.gov");
-    time_t now = time(nullptr);
-    while (now < 8 * 3600 * 2)
-    {
-        delay(500);
-        now = time(nullptr);
-    }
-    struct tm timeinfo;
-    localtime_r(&now, &timeinfo);
-    SS_LOG_LINE("Local time now: %02i:%02i %s", timeinfo.tm_hour % 12, timeinfo.tm_min, timeinfo.tm_hour / 12 >= 1.0f ? "PM" : "AM");
-}
-
-void printFS() {
-    String str = "";
-    Dir dir = LittleFS.openDir("/");
-    while (dir.next())
-    {
-        str += dir.fileName();
-        str += " / ";
-        str += dir.fileSize();
-        str += "\r\n";
-    }
-    SS_LOG_LINE("File system: %s", str.c_str());
-}
-
 class SS3AuthManager {
     private:
-        String refreshToken;
-        String codeVerifier;
-        String codeChallenge;
+        String *refreshToken;
+        String *codeVerifier;
+        String *codeChallenge;
         unsigned long tokenIssueMS;
         unsigned long expiresIn;
 
     public:
-        HTTPClient https;
-        WiFiClientSecure client;
-        CertStore certStore;
-        String tokenType = "Bearer";
-        String accessToken;
+        HTTPClient *https;
+        WiFiClientSecure *client;
+        String *tokenType;
+        String *accessToken;
 
-        bool init() {
+        SS3AuthManager() {
+            SS_LOG_LINE("Making Auth Manager.");
+            refreshToken = new String();
+            codeVerifier = new String();
+            codeChallenge = new String();
+            https = new HTTPClient();
+            client = new WiFiClientSecure();
+            tokenType = new String("Bearer");
+            accessToken = new String();
+
             // init https stuff
-            setClock();
-            if (!LittleFS.begin()) {
-                SS_LOG_LINE("Error starting LittleFS.");
-            }
-            #if SS_DEBUG
-                printFS();
-            #endif
-            int numCerts = certStore.initCertStore(LittleFS, PSTR("/certs.idx"), PSTR("/certs.ar"));
-            if (numCerts == 0) {
-                SS_LOG_LINE("Error reading in SSL certificates.");
-            }
-            SS_LOG_LINE("Read in %i certificates.", numCerts);
-            client.setCertStore(&certStore);
+            client.setCACert(SS_CA_CERT);
             https.useHTTP10(true); // for ArduinoJson
             https.setReuse(false); // to reuse objects with new servers
-            LittleFS.end();
+            SS_LOG_LINE("Certificate added.");
 
             if(!readUserData()) {
                 uint8_t randData[32]; // 32 bytes, u_int8_t is 1 byte
-                ESP.random(randData, SHA256_LEN);
+                esp_fill_random(randData, SHA256_LEN);
                 codeVerifier = base64URLEncode(randData);
 
                 uint8_t hashOut[SHA256_LEN];
                 sha256(codeVerifier.c_str(), hashOut);
                 codeChallenge = base64URLEncode(hashOut);
             }
-
-            return true;
         }
 
         String base64URLEncode(uint8_t *buffer) {

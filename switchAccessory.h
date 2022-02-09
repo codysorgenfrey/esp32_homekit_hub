@@ -2,91 +2,104 @@
 #define __SWITCHACCESSORY_H__
 
 #include "common.h"
-#include <homekit/characteristics.h>
+#include <HomeSpan.h>
 #include <WiFiClient.h>
-#include <ESP8266HTTPClient.h>
+#include <HTTPClient.h>
 
-extern "C" homekit_characteristic_t switchOn;
+#define WEMO_API "http://" WM_IP ":49153/upnp/control/basicevent1"
 
-#define WEMO_API "http://" WEMO_IP ":49153/upnp/control/basicevent1"
+struct WeMoSwitchAccessory : Service::Switch {
+    SpanCharacteristic *on;
+    SpanCharacteristic *name;
 
-void setSwitch(const homekit_value_t value) {
-    // tell switch what homekit says
-
-    // Start First HTTP POST to retrieve switch status (0 for off, 1 for on)
-    String stringState = value.bool_value ? "1" : "0";
-    String postData = "<?xml version=\"1.0\" encoding=\"utf-8\"?><s:Envelope xmlns:s=\"http://schemas.xmlsoap.org/soap/envelope/\" s:encodingStyle=\"http://schemas.xmlsoap.org/soap/encoding/\"><s:Body><u:SetBinaryState xmlns:u=\"urn:Belkin:service:basicevent:1\"><BinaryState>" + stringState + "</BinaryState></u:SetBinaryState></s:Body></s:Envelope>";
-    
-    WiFiClient client;
-    HTTPClient http;
-    http.begin(client, WEMO_API);
-    http.addHeader("Content-Length", (String)postData.length());
-    http.addHeader("Content-Type", "text/xml; charset=\"utf-8\"");
-    http.addHeader("SOAPACTION", "\"urn:Belkin:service:basicevent:1#SetBinaryState\"");
-    
-    HK_LOG_LINE("Sending POST request to Wemo.");
-    int httpCode = http.POST(postData);
-
-    // If HTTP code is not negative, the POST succeeded
-    if (httpCode > 0) {
-        if (httpCode == HTTP_CODE_OK) {
-            HK_LOG_LINE("Wemo switch on.");
-            switchOn.value = value;
-        } else {
-            HK_LOG_LINE("Switch responded not ok.");
-        }
-    } else {
-        HK_LOG_LINE("POST request error.");
+    WeMoSwitchAccessory() : Service::Switch() {
+        on = new Characteristic::On();
+        name = new Characteristic::Name("WeMo Switch");
     }
 
-    http.end();
-    client.stop();
-}
+    boolean update() {
+        printDiagnostic();
+        return updateWeMoState();
+    }
 
-homekit_value_t getSwitch() {
-    // tell homekit what switch says
-    
-    // Start First HTTP POST to retrieve switch status (0 for off, 1 for on)
-    String postData = "<?xml version=\"1.0\" encoding=\"utf-8\"?><s:Envelope xmlns:s=\"http://schemas.xmlsoap.org/soap/envelope/\" s:encodingStyle=\"http://schemas.xmlsoap.org/soap/encoding/\"><s:Body><u:GetBinaryState xmlns:u=\"urn:Belkin:service:basicevent:1\"></u:GetBinaryState></s:Body></s:Envelope>";
-    
-    WiFiClient client;
-    HTTPClient http;
-    http.begin(client, WEMO_API);
-    http.addHeader("Content-Length", String(postData.length()));
-    http.addHeader("Content-Type", "text/xml; charset=\"utf-8\"");
-    http.addHeader("SOAPACTION", "\"urn:Belkin:service:basicevent:1#GetBinaryState\"");
-    
-    HK_LOG_LINE("Sending POST request to Wemo.");
-    int httpCode = http.POST(postData);
+    void loop() {
+        // poll switch here for manual updates
+        if (on->timeVal() >= WM_UPDATE_INTERVAL) updateHomekitState();
+    }
 
-    // If HTTP code is not negative, the POST succeeded
-    if (httpCode > 0) {
-        if (httpCode == HTTP_CODE_OK) {
-            const String &payload = http.getString();
-            if (payload.indexOf("<BinaryState>1</BinaryState>") > 0) {
-                HK_LOG_LINE("Wemo switch on.");
-                switchOn.value.bool_value = true;
+    boolean updateWeMoState() {
+        // Start First HTTP POST to retrieve switch status (0 for off, 1 for on)
+        String stringState = on->getNewVal() ? "1" : "0";
+        String postData = "<?xml version=\"1.0\" encoding=\"utf-8\"?><s:Envelope xmlns:s=\"http://schemas.xmlsoap.org/soap/envelope/\" s:encodingStyle=\"http://schemas.xmlsoap.org/soap/encoding/\"><s:Body><u:SetBinaryState xmlns:u=\"urn:Belkin:service:basicevent:1\"><BinaryState>" + stringState + "</BinaryState></u:SetBinaryState></s:Body></s:Envelope>";
+        
+        WiFiClient client;
+        HTTPClient http;
+        http.begin(client, WEMO_API);
+        http.addHeader("Content-Length", String(postData.length()));
+        http.addHeader("Content-Type", "text/xml; charset=\"utf-8\"");
+        http.addHeader("SOAPACTION", "\"urn:Belkin:service:basicevent:1#SetBinaryState\"");
+        
+        HK_LOG_LINE("Sending POST request to Wemo.");
+        int httpCode = http.POST(postData);
+        bool success = false;
+
+        // If HTTP code is not negative, the POST succeeded
+        if (httpCode > 0) {
+            if (httpCode == HTTP_CODE_OK) {
+                HK_LOG_LINE("Wemo switch state: %s.", stringState);
+                success = true;
             } else {
-                HK_LOG_LINE("Wemo switch off.");
-                switchOn.value.bool_value = false;
+                HK_LOG_LINE("Switch responded not ok.");
             }
         } else {
-            HK_LOG_LINE("Switch responded not ok.");
+            HK_LOG_LINE("POST request error.");
         }
-    } else {
-        HK_LOG_LINE("POST request error.");
+
+        http.end();
+        client.stop();
+        return success;
     }
 
-    http.end();
-    client.stop();
-    return switchOn.value;
-}
+    void updateHomekitState() {
+        // tell homekit what switch says
+        
+        String postData = "<?xml version=\"1.0\" encoding=\"utf-8\"?><s:Envelope xmlns:s=\"http://schemas.xmlsoap.org/soap/envelope/\" s:encodingStyle=\"http://schemas.xmlsoap.org/soap/encoding/\"><s:Body><u:GetBinaryState xmlns:u=\"urn:Belkin:service:basicevent:1\"></u:GetBinaryState></s:Body></s:Envelope>";
+        
+        WiFiClient client;
+        HTTPClient http;
+        http.begin(client, WEMO_API);
+        http.addHeader("Content-Length", String(postData.length()));
+        http.addHeader("Content-Type", "text/xml; charset=\"utf-8\"");
+        http.addHeader("SOAPACTION", "\"urn:Belkin:service:basicevent:1#GetBinaryState\"");
+        
+        HK_LOG_LINE("Sending POST request to Wemo.");
+        int httpCode = http.POST(postData);
 
-bool initSwitchAccessory() {
-    switchOn.setter = setSwitch;
-    switchOn.getter = getSwitch;
+        // If HTTP code is not negative, the POST succeeded
+        if (httpCode > 0) {
+            if (httpCode == HTTP_CODE_OK) {
+                const String &payload = http.getString();
+                if (payload.indexOf("<BinaryState>1</BinaryState>") > 0) {
+                    HK_LOG_LINE("Wemo switch on.");
+                    if (!on->getVal()) on->setVal(true);
+                } else {
+                    HK_LOG_LINE("Wemo switch off.");
+                    if (on->getVal()) on->setVal(false);
+                }
+            } else {
+                HK_LOG_LINE("Switch responded not ok.");
+            }
+        } else {
+            HK_LOG_LINE("POST request error.");
+        }
 
-    return true;
-}
+        http.end();
+        client.stop();
+    }
+
+    void printDiagnostic() {
+        HK_LOG_LINE("WeMo on: %s", on->getNewVal() ? "on" : "off");
+    }
+};
 
 #endif

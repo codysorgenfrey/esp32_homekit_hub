@@ -3,27 +3,32 @@
 
 #include "ssCommon.h"
 #include <ArduinoJson.h>
-#include "ss3AuthManager.h"
+#include "ss3authManager->h"
 
 class SimpliSafe3 {
     private:
-        String subId;
-        String userId;
-        SS3AuthManager authManager;
+        String *subId;
+        String *userId;
+        SS3AuthManager *authManager;
 
     public:
-        inline bool init() { return authManager.init(); }
+        SimpliSafe3() {
+            SS_LOG_LINE("Making SS3");
+            subId = new String();
+            userId = new String();
+            authManager = new SS3AuthManager();
+        }
 
         bool authorize(HardwareSerial *hwSerial = &Serial, unsigned long baud = 115200) {
-            if (!authManager.isAuthorized()) {
+            if (!authManager->isAuthorized()) {
                 SS_LOG_LINE("Get that damn URL code:");
-                SS_LOG_LINE("%s", authManager.getSS3AuthURL().c_str());
+                SS_LOG_LINE("%s", authManager->getSS3AuthURL().c_str());
                 if (!hwSerial) hwSerial->begin(baud);
                 while (hwSerial->available() > 0) { hwSerial->read(); } // flush serial monitor
                 while (hwSerial->available() == 0) { delay(100); } // wait for url input
                 String code = hwSerial->readString();
                 hwSerial->println();
-                if (authManager.getAuthToken(code)) {
+                if (authManager->getAuthToken(code)) {
                     SS_LOG_LINE("Successfully authorized Homekit with SimpliSafe.");
                     return true;
                 } else { 
@@ -32,11 +37,11 @@ class SimpliSafe3 {
                 }
             }
                 
-            return authManager.refreshAuthToken();
+            return authManager->refreshAuthToken();
         }
 
-        String getUserID() {
-            if (userId.length() != 0) {
+        String* getUserID() {
+            if (userId->length() != 0) {
                 return userId;
             }
 
@@ -48,9 +53,9 @@ class SimpliSafe3 {
 
         DynamicJsonDocument request(String path, bool post = false, String payload = "", int docSize = 3072) {
             StaticJsonDocument<256> headers;
-            headers["Authorization"] = authManager.tokenType + " " + authManager.accessToken;
+            headers["Authorization"] = authManager->tokenType + " " + authManager->accessToken;
 
-            return authManager.request(SS3API + path, post, payload, headers, docSize);
+            return authManager->request(SS3API + path, post, payload, headers, docSize);
         }
 
         DynamicJsonDocument getSubscriptions() {
@@ -93,7 +98,7 @@ class SimpliSafe3 {
         }
 
         bool setAlarmState(String newState) {
-            if (subId.length() == 0) {
+            if (subId->length() == 0) {
                 getSubscription();
             }
 

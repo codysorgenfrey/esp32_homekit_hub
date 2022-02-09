@@ -1,43 +1,43 @@
 #ifndef __COMMON_H__
 #define __COMMON_H__
 
-#include <esp_xpgm.h>
-#include "secrets.h"
+#include <Arduino.h>
 
 // Board stuff
 #define STATUS_LED BUILTIN_LED
-#define PWR_LED 16
-#define LED_ON LOW
-#define LED_OFF HIGH
 
 // Homekit stuff
 #define HK_DEBUG true
-#define HK_MANUFACTURER "KeeYees"
+#define HK_MANUFACTURER "Lolin"
 #define HK_NAME "Smart Home Hub"
-#define HK_MODEL "Node MCU 1.0 ESP-12E"
-#define HK_SERIALNUM "12345"
+#define HK_MODEL "LOLIN D32 PRO"
+#define HK_SERIALNUM "2020DP1674"
 #define HK_UNIQUE_NAME HK_NAME "-" HK_SERIALNUM
 #define HK_SKETCH_VER "0.0.1"
 
-// State handling
-#define STATUS_ERROR 0
-#define STATUS_OK 1
-#define STATUS_NO_WIFI 2
-#define STATUS_NO_OTA 3
-#define STATUS_NO_HOMEKIT 4
-#define STATUS_NO_HEAT_PUMP 5
-#define STATUS_OTA_PROGRESS 6
+// WeMo Stuff
+#define WM_MANUFACTURER "Belkin"
+#define WM_NAME "WeMo Smart Switch"
+#define WM_MODEL "F7C027"
+#define WM_SERIALNUM "221620K01028B9"
+#define WM_IP "192.168.86.42"
+#define WM_UPDATE_INTERVAL 300000 // 5 minutes
+
+// SimpliSafe
+#define SS_DEBUG true
+#define SS_MANUFACTURER "SimpliSafe"
+#define SS_NAME "SimpliSafe Alarm"
+#define SS_MODEL ""
+#define SS_SERIALNUM ""
+#define SS_UPDATE_INTERVAL 300000 // 5 minutes
 
 // Logging
 #if HK_DEBUG
-#define HK_LOG(message, ...) XPGM_PRINTF(">>> [%7d][%.2fkb] HomeKit Hub: " message , millis(), (system_get_free_heap_size() * 0.001f), ##__VA_ARGS__)
-#define HK_LOG_LINE(message, ...) XPGM_PRINTF(">>> [%7d][%.2fkb] HomeKit Hub: " message "\n", millis(), (system_get_free_heap_size() * 0.001f), ##__VA_ARGS__)
+#define HK_LOG(message, ...) printf(">>> [%7d][%.2fkb] HomeKit Hub: " message, millis(), (esp_get_free_heap_size() * 0.001f), ##__VA_ARGS__)
+#define HK_LOG_LINE(message, ...) printf(">>> [%7d][%.2fkb] HomeKit Hub: " message "\n", millis(), (esp_get_free_heap_size() * 0.001f), ##__VA_ARGS__)
 #else
 #define HK_LOG(message, ...)
 #define HK_LOG_LINE(message, ...)
 #endif
-
-// SimpliSafe
-#define SS_DEBUG true
 
 #endif
