@@ -1,21 +1,19 @@
 #ifndef __SIMPLISAFE3_H__
 #define __SIMPLISAFE3_H__
 
-#include "ssCommon.h"
+#include "common.h"
 #include <ArduinoJson.h>
-#include "ss3authManager->h"
+#include "ss3authManager.h"
 
 class SimpliSafe3 {
     private:
-        String *subId;
-        String *userId;
+        String subId;
+        String userId;
         SS3AuthManager *authManager;
 
     public:
         SimpliSafe3() {
             SS_LOG_LINE("Making SS3");
-            subId = new String();
-            userId = new String();
             authManager = new SS3AuthManager();
         }
 
@@ -40,50 +38,73 @@ class SimpliSafe3 {
             return authManager->refreshAuthToken();
         }
 
-        String* getUserID() {
-            if (userId->length() != 0) {
+        String getUserID() {
+            SS_LOG_LINE("Getting user ID");
+            if (userId.length() != 0) {
+                SS_LOG_LINE("Already had userID");
                 return userId;
             }
 
-            DynamicJsonDocument data = request("/api/authCheck", false);
-            userId = data["userId"].as<String>();
+            DynamicJsonDocument data = authManager->request(String(SS3API) + "/api/authCheck", 64);
+            if (data.size() > 0) {
+                userId = data["userId"].as<String>();
 
-            return userId;
-        }
+                return userId;
+            }
 
-        DynamicJsonDocument request(String path, bool post = false, String payload = "", int docSize = 3072) {
-            StaticJsonDocument<256> headers;
-            headers["Authorization"] = authManager->tokenType + " " + authManager->accessToken;
-
-            return authManager->request(SS3API + path, post, payload, headers, docSize);
-        }
-
-        DynamicJsonDocument getSubscriptions() {
-            String userID = getUserID();
-            DynamicJsonDocument subscriptions = request("/users/"+userID+"/subscriptions?activeOnly=false", false);
-
-            return subscriptions;
+            return "";
         }
 
         DynamicJsonDocument getSubscription() {
-            DynamicJsonDocument subs = getSubscriptions();
-
-            if (!subId && subs.size() == 1) { // TODO: Handle other situations
-                subId = subs[0]["sid"].as<String>();
+            String userIdStr = getUserID();
+            if (userIdStr.length() == 0) {
+                SS_LOG_LINE("Error getting userId.");
+                return StaticJsonDocument<0>();
             }
 
-            return subs[0];
+            StaticJsonDocument<192> filter;
+            filter[0]["sid"] = true;
+            filter[0]["location"]["system"]["alarmState"] = true;
+            filter[0]["location"]["system"]["isAlarming"] = true;
+
+            SS_LOG_LINE("Getting first subscription.");
+            DynamicJsonDocument sub = authManager->request(
+                String(SS3API) + "/users/"+userIdStr+"/subscriptions?activeOnly=true", 
+                192, 
+                true,
+                false,
+                "",
+                StaticJsonDocument<0>(),
+                filter
+            );
+
+            if (sub.size() == 0) {
+                SS_LOG_LINE("Error getting all subscriptions.");
+                return StaticJsonDocument<0>();
+            }
+
+             // TODO: Handle other situations
+            subId = String(sub[0]["sid"].as<int>());
+            SS_LOG_LINE("Set subId %s.", subId.c_str());
+
+            return sub[0];
         }
 
         String getAlarmState() {
-            DynamicJsonDocument subscription = getSubscription();
+            SS_LOG_LINE("Getting alarm state.");
+            DynamicJsonDocument sub = getSubscription();
 
-            if (subscription["location"] && subscription["location"]["system"]) { 
-                if (subscription["location"]["system"]["isAlarming"].as<bool>())
+            if (sub.size() == 0) {
+                SS_LOG_LINE("Error getting subscription.");
+                return "UNKNOWN";
+            }
+
+            if (sub["location"] && sub["location"]["system"]) { 
+                if (sub["location"]["system"]["isAlarming"].as<bool>())
                     return "ALARM";
 
                 static String validStates[7] = {"OFF", "HOME", "AWAY", "AWAY_COUNT", "HOME_COUNT", "ALARM_COUNT", "ALARM"};
-                String alarmState = subscription["location"]["system"]["alarmState"];
+                String alarmState = sub["location"]["system"]["alarmState"];
                 
                 bool found = false;
                 for (int x=0; x < 7; x++) {
@@ -91,25 +112,24 @@ class SimpliSafe3 {
                         found = true;
                 }
 
-                return found ? alarmState : "UNKOWN";
-            } else {
-                return "UNKOWN";
+                return found ? alarmState : "UNKNOWN";
             }
+            
+            SS_LOG_LINE("Subscription doesn't have location or system.");
+            return "UNKNOWN";
         }
 
         bool setAlarmState(String newState) {
-            if (subId->length() == 0) {
+            SS_LOG_LINE("Setting alarm state");
+            if (subId.length() == 0) {
                 getSubscription();
             }
 
-            DynamicJsonDocument data = request(
-                "/ss3/subscriptions/" + subId + "/state/" + newState, 
-                true
-            );
+            DynamicJsonDocument data = authManager->request(String(SS3API) + "/ss3/subscriptions/" + subId + "/state/" + newState, 3072); // optimise size
 
-            // check if it worked here
+            if (data.size() > 0) return true;
 
-            return true;
+            return false;
         }
 };
 

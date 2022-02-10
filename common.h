@@ -27,9 +27,39 @@
 #define SS_DEBUG true
 #define SS_MANUFACTURER "SimpliSafe"
 #define SS_NAME "SimpliSafe Alarm"
-#define SS_MODEL ""
-#define SS_SERIALNUM ""
+#define SS_MODEL "Soundin"
+#define SS_SERIALNUM "16171819"
 #define SS_UPDATE_INTERVAL 300000 // 5 minutes
+
+// Smart Lock
+#define SL_MANUFACTURER "SimpliSafe"
+#define SL_NAME "SimpliSafe Smart Lock"
+#define SL_MODEL "Locker room"
+#define SL_SERIALNUM "13141516"
+#define SL_UPDATE_INTERVAL 300000 // 5 minutes
+
+// Garage Door
+#define GD_DEBUG true
+#define GD_MANUFACTURER "Liftmaster"
+#define GD_NAME "Liftmaster Garage Door Opener"
+#define GD_MODEL "Superlift"
+#define GD_SERIALNUM "789101112"
+#define GD_UPDATE_INTERVAL 300000 // 5 minutes
+
+// Temp Sensor
+#define TS_DEBUG true
+#define TS_MANUFACTURER "InkBird"
+#define TS_NAME "InkBird Temperature Sensor"
+#define TS_MODEL "IBS-TH2"
+#define TS_SERIALNUM "123456"
+#define TS_UPDATE_INTERVAL 60000 // 1 minute
+
+// Weather API
+#define WA_MANUFACTURER "Open Weather Map"
+#define WA_NAME "Outside Temperature"
+#define WA_MODEL "12345"
+#define WA_SERIALNUM "123456"
+#define WA_UPDATE_INTERVAL 3600000 // 1 hour
 
 // Logging
 #if HK_DEBUG

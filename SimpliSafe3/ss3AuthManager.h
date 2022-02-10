@@ -1,47 +1,33 @@
 #ifndef __SS3AUTHMANAGER_H__
 #define __SS3AUTHMANAGER_H__
 
-#include "ssCommon.h"
+#include "common.h"
+#include <WiFi.h>
 #include <HTTPclient.h>
 #include <WiFiClientSecure.h>
 #include <ArduinoJson.h>
 #include <base64.h>
 #include <SHA256.h>
-#include <LittleFS.h>
+#include <SPIFFS.h>
 #include <time.h>
 
 #define SHA256_LEN 32
 
 class SS3AuthManager {
     private:
-        String *refreshToken;
-        String *codeVerifier;
-        String *codeChallenge;
+        String refreshToken;
+        String codeVerifier;
+        String codeChallenge;
         unsigned long tokenIssueMS;
         unsigned long expiresIn;
 
     public:
         HTTPClient *https;
         WiFiClientSecure *client;
-        String *tokenType;
-        String *accessToken;
+        String tokenType = "Bearer";
+        String accessToken;
 
         SS3AuthManager() {
-            SS_LOG_LINE("Making Auth Manager.");
-            refreshToken = new String();
-            codeVerifier = new String();
-            codeChallenge = new String();
-            https = new HTTPClient();
-            client = new WiFiClientSecure();
-            tokenType = new String("Bearer");
-            accessToken = new String();
-
-            // init https stuff
-            client.setCACert(SS_CA_CERT);
-            https.useHTTP10(true); // for ArduinoJson
-            https.setReuse(false); // to reuse objects with new servers
-            SS_LOG_LINE("Certificate added.");
-
             if(!readUserData()) {
                 uint8_t randData[32]; // 32 bytes, u_int8_t is 1 byte
                 esp_fill_random(randData, SHA256_LEN);
@@ -78,7 +64,7 @@ class SS3AuthManager {
         bool isAuthenticated() {
             unsigned long now = millis();
             unsigned long timeElapsed = max(now, tokenIssueMS) - min(now, tokenIssueMS);
-            return timeElapsed < expiresIn && this->refreshToken.length() != 0;
+            return timeElapsed < expiresIn && refreshToken.length() != 0;
         }
 
         String getSS3AuthURL() {
@@ -99,28 +85,52 @@ class SS3AuthManager {
             ;
         }
 
-        DynamicJsonDocument request(String url, bool post = false, String payload = "", const DynamicJsonDocument &headers = StaticJsonDocument<0>(), int docSize = 3072) {
-            LittleFS.begin(); // for SSL certs
-            if (https.begin(client, url)) SS_LOG_LINE("Connected to %s", url.c_str());
+        DynamicJsonDocument request(String url, int docSize = 3072, bool auth = true, bool post = false, String payload = "", const DynamicJsonDocument &headers = StaticJsonDocument<0>(), const DynamicJsonDocument &filter = StaticJsonDocument<0>()) {
+            SS_LOG_LINE("Requesting: %s %s Authorized=%s: %s", post ? "POST" : "GET", url.c_str(), auth ? "yes" : "no", payload.c_str());
+
+            if (WiFi.status() != WL_CONNECTED) {
+                SS_LOG_LINE("Not connected to WiFi.");
+                return StaticJsonDocument<0>();
+            }
+
+            https = new HTTPClient();
+            client = new WiFiClientSecure();
+            https->useHTTP10(true); // for ArduinoJson
+
+            if (url.indexOf("https://auth") >= 0) client->setCACert(SS_OAUTH_CA_CERT);
+            else client->setInsecure(); // SEE IF OTHER CERTS WORK NOW
+
+            if (!https->begin(*client, url)){
+                SS_LOG_LINE("Could not connect to %s.", url.c_str());
+                return StaticJsonDocument<0>();
+            }
+
+            if (auth) {
+                SS_LOG_LINE("Setting auth creds.");
+                https->setAuthorization(""); // clear it out
+                https->addHeader("Authorization", tokenType + " " + accessToken);
+            }
 
             if (headers.size() != 0) {
+                SS_LOG_LINE("Headers is bigger than 0.");
                 for (int x = 0; x < headers.size(); x++) {
-                    https.addHeader(headers[x]["name"], headers[x]["value"]);
+                    SS_LOG_LINE("Adding %i header.", x);
+                    https->addHeader(headers[x]["name"], headers[x]["value"], x == 0);
                     SS_LOG_LINE("Header added... %s: %s", headers[x]["name"].as<const char*>(), headers[x]["value"].as<const char*>());
                 }
             }
 
-            SS_LOG_LINE("Payload: %s", payload.c_str());
-
             int response;
             if (post)
-                response = https.POST(payload);
+                response = https->POST(payload);
             else
-                response = https.GET();
+                response = https->GET();
+
+            SS_LOG_LINE("Request sent.");
 
             if (response < 200 || response > 299) {
                 SS_LOG_LINE("Error, code: %i.", response);
-                SS_LOG_LINE("Response: %s", https.getString().c_str());
+                SS_LOG_LINE("Response: %s", https->getString().c_str());
                 return StaticJsonDocument<0>();
             }
 
@@ -128,7 +138,7 @@ class SS3AuthManager {
             
             DynamicJsonDocument doc(docSize);
             SS_LOG_LINE("Created doc of %i size", docSize);
-            DeserializationError err = deserializeJson(doc, https.getStream());
+            DeserializationError err = deserializeJson(doc, https->getStream(), DeserializationOption::Filter(filter));
             SS_LOG_LINE("Desearialized stream.");
             if (err) {
                 SS_LOG_LINE("API request deserialization error: %s", err.f_str());
@@ -139,14 +149,16 @@ class SS3AuthManager {
                 #endif
             }
 
-            client.stop();
-            https.end();
-            LittleFS.end();
+            client->stop();
+            https->end();
+            delete https;
+            delete client;
+
             return doc;
         }
 
         bool getAuthToken(String code) {
-            StaticJsonDocument<256> headers; // optimise size
+            StaticJsonDocument<256> headers;
             headers[0]["name"] = "Host";
             headers[0]["value"] = "auth.simplisafe.com";
             headers[1]["name"] = "Content-Type";
@@ -162,11 +174,12 @@ class SS3AuthManager {
             payloadDoc["client_id"] = SS_OAUTH_CLIENT_ID;
             payloadDoc["code_verifier"] = codeVerifier;
             code.replace("\n", "");
+            code.replace("\r", "");
             payloadDoc["code"] = code;
             payloadDoc["redirect_uri"] = SS_OAUTH_REDIRECT_URI;
             serializeJson(payloadDoc, payload);
             
-            DynamicJsonDocument res = request(SS_OAUTH + String("/token"), true, payload, headers, 3072);
+            DynamicJsonDocument res = request(SS_OAUTH + String("/token"), 3072, false, true, payload, headers);
 
             if (res.size() != 0)
                 return storeAuthToken(res);
@@ -175,7 +188,7 @@ class SS3AuthManager {
         }
 
         bool refreshAuthToken() {
-            StaticJsonDocument<256> headers; // optimise size
+            StaticJsonDocument<256> headers;
             headers[0]["name"] = "Host";
             headers[0]["value"] = "auth.simplisafe.com";
             headers[1]["name"] = "Content-Type";
@@ -192,7 +205,7 @@ class SS3AuthManager {
             payloadDoc["refresh_token"] = refreshToken;
             serializeJson(payloadDoc, payload);
 
-            DynamicJsonDocument res = request(SS_OAUTH + String("/token"), true, payload, headers, 3072);
+            DynamicJsonDocument res = request(SS_OAUTH + String("/token"), 3072, false, true, payload, headers);
 
             if (res.size() != 0)
                 return storeAuthToken(res);
@@ -219,42 +232,42 @@ class SS3AuthManager {
             userData["refreshToken"] = refreshToken;
             userData["codeVerifier"] = codeVerifier;
 
-            if (!LittleFS.begin()) {
-                SS_LOG_LINE("Error starting LittleFS.");
+            if (!SPIFFS.begin(true)) {
+                SS_LOG_LINE("Error starting SPIFFS.");
                 return false;
             }
 
-            File file = LittleFS.open(SS_USER_DATA_FILE, "w");
+            File file = SPIFFS.open(SS_USER_DATA_FILE, "w");
             if (!file) {
                 SS_LOG_LINE("Failed to open %s.", SS_USER_DATA_FILE);
-                LittleFS.end();
+                SPIFFS.end();
                 return false;
             }
 
             if (serializeJson(userData, file) == 0) {
                 SS_LOG_LINE("Failed to write data to %s.", SS_USER_DATA_FILE);
                 file.close();
-                LittleFS.end();
+                SPIFFS.end();
                 return false;
             }
 
             SS_LOG_LINE("Wrote to user data file.");
 
             file.close();
-            LittleFS.end();
+            SPIFFS.end();
             return true;
         }
 
         bool readUserData() {
-            if (!LittleFS.begin()) {
-                SS_LOG_LINE("Error starting LittleFS.");
+            if (!SPIFFS.begin(true)) {
+                SS_LOG_LINE("Error starting SPIFFS.");
                 return false;
             }
 
-            File file = LittleFS.open(SS_USER_DATA_FILE, "r");
+            File file = SPIFFS.open(SS_USER_DATA_FILE, "r");
             if (!file) {
                 SS_LOG_LINE("Failed to open %s.", SS_USER_DATA_FILE);
-                LittleFS.end();
+                SPIFFS.end();
                 return false;
             }
 
@@ -262,8 +275,9 @@ class SS3AuthManager {
             DeserializationError err = deserializeJson(userData, file);
             if (err) {
                 SS_LOG_LINE("Error deserializing %s.", SS_USER_DATA_FILE);
+                SS_LOG_LINE("%s", err.f_str());
                 file.close();
-                LittleFS.end();
+                SPIFFS.end();
                 return false;
             }
 
@@ -278,7 +292,7 @@ class SS3AuthManager {
             #endif
 
             file.close();
-            LittleFS.end();
+            SPIFFS.end();
             return true;
         }
 };

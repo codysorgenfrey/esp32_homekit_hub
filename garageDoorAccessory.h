@@ -1,3 +1,39 @@
+#ifndef __GARAGEDOORACCESSORY_H__
+#define __GARAGEDOORACCESSORY_H__
+
+#include "common.h"
+#include <HomeSpan.h>
+
+struct GarageDoorAccessory : Service::GarageDoorOpener {
+    SpanCharacteristic *curState;
+    SpanCharacteristic *tarState;
+    SpanCharacteristic *obstructed;
+
+    GarageDoorAccessory() : Service::GarageDoorOpener() {
+        curState = new Characteristic::CurrentDoorState();
+        tarState = new Characteristic::TargetDoorState();
+        obstructed = new Characteristic::ObstructionDetected();
+    }
+
+    boolean update() {
+        return updateSimpliSafeState();
+    }
+
+    void loop() {
+
+    }
+
+    boolean updateSimpliSafeState() {
+        return true;
+    }
+
+    void updateHomekitState() {
+        
+    }
+};
+
+#endif
+
 // #ifndef __GARAGEDOOR_H__
 // #define __GARAGEDOOR_H__
 
