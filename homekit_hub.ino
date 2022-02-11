@@ -27,8 +27,12 @@ void setup()
 
     SimpliSafe3 ss;
     ss.authorize();
-    int state = ss.setLockState(SS_SETLOCKSTATE_UNLOCK);
-    HK_LOG_LINE("Lock state: %i", state);
+    int alarmState = ss.getAlarmState();
+    HK_LOG_LINE("Alarm state: %i (UNKNOWN,OFF,HOME,HOME_COUNT,AWAY,AWAY_COUNT,ALARM,ALARM_COUNT)", alarmState);
+    int lockState = ss.getLockState();
+    HK_LOG_LINE("Lock state: %i (UNKNOWN,UNLOCKED,LOCKED)", lockState);
+    ss.setLockState(SS_SETLOCKSTATE_LOCK);
+    HK_LOG_LINE("Told SS to lock the front door..."); // need to impliment websocket to hear async if it worked
 
     // homeSpan.enableOTA();
     // homeSpan.setStatusPin(STATUS_LED);
