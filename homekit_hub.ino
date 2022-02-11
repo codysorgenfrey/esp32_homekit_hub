@@ -27,8 +27,8 @@ void setup()
 
     SimpliSafe3 ss;
     ss.authorize();
-    String state = ss.getAlarmState();
-    HK_LOG_LINE("Simplisafe state: %s", state);
+    int state = ss.setLockState(SS_SETLOCKSTATE_UNLOCK);
+    HK_LOG_LINE("Lock state: %i", state);
 
     // homeSpan.enableOTA();
     // homeSpan.setStatusPin(STATUS_LED);

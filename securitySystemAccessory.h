@@ -36,43 +36,43 @@ struct SecuritySystemAccessory : Service::SecuritySystem {
     
     void getSystemCurState() {
         // tell homekit what system says
-        int ss3TranslatedState = 3; // default to off to be safe
-        String ss3State = ss->getAlarmState();
+        int ssTranslatedState = 3; // default to off to be safe
+        int ssState = ss->getAlarmState();
 
-        if (ss3State.equals("OFF")) {
-            ss3TranslatedState = 3;
-        } else if (ss3State.equals("HOME")) {
-            ss3TranslatedState = 0;
-        } else if (ss3State.equals("AWAY")) {
-            ss3TranslatedState = 1;
-        } else if (ss3State.equals("AWAY_COUNT")) {
-            ss3TranslatedState = 1;
-        } else if (ss3State.equals("HOME_COUNT")) {
-            ss3TranslatedState = 0;
-        } else if (ss3State.equals("ALARM_COUNT")) {
-            ss3TranslatedState = 4;
-        } else if (ss3State.equals("ALARM")) {
-            ss3TranslatedState = 4;
-        } else if (ss3State.equals("UNKNOWN")) {
+        if (ssState == SS_GETSTATE_OFF) {
+            ssTranslatedState = 3;
+        } else if (ssState == SS_GETSTATE_HOME) {
+            ssTranslatedState = 0;
+        } else if (ssState == SS_GETSTATE_AWAY) {
+            ssTranslatedState = 1;
+        } else if (ssState == SS_GETSTATE_AWAY_COUNT) {
+            ssTranslatedState = 1;
+        } else if (ssState == SS_GETSTATE_HOME_COUNT) {
+            ssTranslatedState = 0;
+        } else if (ssState == SS_GETSTATE_ALARM_COUNT) {
+            ssTranslatedState = 4;
+        } else if (ssState == SS_GETSTATE_ALARM) {
+            ssTranslatedState = 4;
+        } else if (ssState == SS_GETSTATE_UNKNOWN) {
             HK_LOG_LINE("Unknown Simplisafe Alarm State.");
         }
 
-        curState->setVal(ss3TranslatedState);
+        curState->setVal(ssTranslatedState);
     }
 
     boolean setSystemCurState() {
         boolean success = true;
         int hkState = tarState->getNewVal();
-        String ssState;
+        SS_SETSTATE ssState;
 
         if (hkState == 0) {
-            ssState = "home";
+            ssState = SS_SETSTATE_HOME;
         } else if (hkState == 1) {
-            ssState = "away";
+            ssState = SS_SETSTATE_AWAY;
         } else if (hkState == 2) {
-            ssState = "home";
+            ssState = SS_SETSTATE_HOME;
         } else if (hkState == 3) {
-            ssState = "off";
+            ssState = SS_SETSTATE_OFF;
         }
 
         return ss->setAlarmState(ssState);

@@ -13,6 +13,29 @@
 
 #define SHA256_LEN 32
 
+class AllowAllFilter : ArduinoJson6191_F1::Filter {
+    bool allow() const {
+        return true;
+    }
+
+    bool allowArray() const {
+        return true;
+    }
+
+    bool allowObject() const {
+        return true;
+    }
+
+    bool allowValue() const {
+        return true;
+    }
+
+    template <typename TKey>
+    AllowAllFilter operator[](const TKey &) const {
+        return AllowAllFilter();
+    }
+};
+
 class SS3AuthManager {
     private:
         String refreshToken;
@@ -85,8 +108,19 @@ class SS3AuthManager {
             ;
         }
 
-        DynamicJsonDocument request(String url, int docSize = 3072, bool auth = true, bool post = false, String payload = "", const DynamicJsonDocument &headers = StaticJsonDocument<0>(), const DynamicJsonDocument &filter = StaticJsonDocument<0>()) {
-            SS_LOG_LINE("Requesting: %s %s Authorized=%s: %s", post ? "POST" : "GET", url.c_str(), auth ? "yes" : "no", payload.c_str());
+        DynamicJsonDocument request(
+            String url, 
+            int docSize = 3072, 
+            bool auth = true, 
+            bool post = false, 
+            String payload = "", 
+            const DynamicJsonDocument &headers = StaticJsonDocument<0>(), 
+            const DynamicJsonDocument &filter = StaticJsonDocument<0>(),
+            const DeserializationOption::NestingLimit &nestingLimit = DeserializationOption::NestingLimit()
+        ) {
+            SS_LOG_LINE("Requesting: %s %s", post ? "POST" : "GET", url.c_str());
+            SS_LOG_LINE("Authorized: %s", auth ? "yes" : "no");
+            SS_LOG_LINE("Payload: %s", payload.c_str());
 
             if (WiFi.status() != WL_CONNECTED) {
                 SS_LOG_LINE("Not connected to WiFi.");
@@ -115,8 +149,12 @@ class SS3AuthManager {
                 SS_LOG_LINE("Headers is bigger than 0.");
                 for (int x = 0; x < headers.size(); x++) {
                     SS_LOG_LINE("Adding %i header.", x);
-                    https->addHeader(headers[x]["name"], headers[x]["value"], x == 0);
-                    SS_LOG_LINE("Header added... %s: %s", headers[x]["name"].as<const char*>(), headers[x]["value"].as<const char*>());
+                    https->addHeader(headers[x]["name"], headers[x]["value"]);
+                    SS_LOG_LINE(
+                        "Header added... %s: %s", 
+                        headers[x]["name"].as<const char*>(), 
+                        headers[x]["value"].as<const char*>()
+                    );
                 }
             }
 
@@ -125,7 +163,6 @@ class SS3AuthManager {
                 response = https->POST(payload);
             else
                 response = https->GET();
-
             SS_LOG_LINE("Request sent.");
 
             if (response < 200 || response > 299) {
@@ -133,15 +170,19 @@ class SS3AuthManager {
                 SS_LOG_LINE("Response: %s", https->getString().c_str());
                 return StaticJsonDocument<0>();
             }
-
             SS_LOG_LINE("Response: %i", response);
             
             DynamicJsonDocument doc(docSize);
             SS_LOG_LINE("Created doc of %i size", docSize);
-            DeserializationError err = deserializeJson(doc, https->getStream(), DeserializationOption::Filter(filter));
+            
+            DeserializationError err;
+            if (filter.size() != 0) err = deserializeJson(doc, https->getStream(), DeserializationOption::Filter(filter), nestingLimit);
+            else err = deserializeJson(doc, https->getStream(), nestingLimit);
             SS_LOG_LINE("Desearialized stream.");
+            
             if (err) {
-                SS_LOG_LINE("API request deserialization error: %s", err.f_str());
+                if (err == DeserializationError::EmptyInput) doc["response"] = response; // no json response
+                else SS_LOG_LINE("API request deserialization error: %s", err.f_str());
             } else {
                 #if SS_DEBUG
                     serializeJsonPretty(doc, Serial);
