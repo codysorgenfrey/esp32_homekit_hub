@@ -4,7 +4,7 @@
 #include "common.h"
 #include <HomeSpan.h>
 #include <WiFi.h>
-#include "SimpliSafe3/simpliSafe3.h"
+#include <SimpliSafe3.h>
 
 struct SecuritySystemAccessory : Service::SecuritySystem {
     SpanCharacteristic *curState;
