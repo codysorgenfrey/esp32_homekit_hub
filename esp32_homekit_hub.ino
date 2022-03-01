@@ -1,21 +1,24 @@
 /*
 TODO:
-1. MyQ: Create API Library package
-2. Weather API: Get weather
-3. Inkbird: Figure out bluetooth to read sensor
-4. HK: Hook up accessories
-5. List dependencies for project in README.md
+1. Weather API: Get weather
+2. Inkbird: Figure out bluetooth to read sensor
+3. HK: Hook up accessories
+4. List dependencies for project in README.md
 */
 
 #include "common.h"
 #include <HomeSpan.h>
 #include <SimpliSafe3.h>
+#include <MyQ.h>
 #include "switchAccessory.h"
 #include "securitySystemAccessory.h"
 #include "lockAccessory.h"
 #include "garageDoorAccessory.h"
 #include "tempSensorAccessory.h"
 #include "weatherAPIAccessory.h"
+
+SimpliSafe3 ss;
+MyQ mq;
 
 void setup()
 {
@@ -62,7 +65,7 @@ void setup()
             new Characteristic::FirmwareRevision(HK_SKETCH_VER);
             new Characteristic::Identify();
 
-        new SecuritySystemAccessory();
+        new SecuritySystemAccessory(&ss);
 
     new SpanAccessory();
         new Service::AccessoryInformation();
