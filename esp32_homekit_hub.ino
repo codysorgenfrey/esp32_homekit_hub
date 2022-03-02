@@ -9,7 +9,6 @@ TODO:
 #include "common.h"
 #include <HomeSpan.h>
 #include <SimpliSafe3.h>
-#include <MyQ.h>
 #include "switchAccessory.h"
 #include "securitySystemAccessory.h"
 #include "lockAccessory.h"
@@ -18,7 +17,8 @@ TODO:
 #include "weatherAPIAccessory.h"
 
 SimpliSafe3 ss;
-MyQ mq;
+SecuritySystemAccessory *security;
+LockAccessory *lock;
 
 void setup()
 {
@@ -65,7 +65,7 @@ void setup()
             new Characteristic::FirmwareRevision(HK_SKETCH_VER);
             new Characteristic::Identify();
 
-        new SecuritySystemAccessory(&ss);
+        security = new SecuritySystemAccessory(&ss);
 
     new SpanAccessory();
         new Service::AccessoryInformation();
@@ -76,7 +76,7 @@ void setup()
             new Characteristic::FirmwareRevision(HK_SKETCH_VER);
             new Characteristic::Identify();
 
-        new LockAccessory();
+        lock = new LockAccessory(&ss);
 
     new SpanAccessory();
         new Service::AccessoryInformation();
@@ -110,9 +110,31 @@ void setup()
             new Characteristic::Identify();
 
         new WeatherAPIAccessory();
+
+    homeSpan.setWifiCallback([](){
+        // finish setup after wifi connects
+        HK_ERROR_LINE("Testing error system...");
+        
+        if (!ss.setup()) {
+            HK_ERROR_LINE("Error setting up SimpliSafe API.");
+        }
+        if (!ss.startListeningToEvents([](int eventId) {
+            security->listenToEvents(eventId);
+            lock->listenToEvents(eventId);
+        }, nullptr, nullptr)) {
+            HK_ERROR_LINE("Error setting up event callbacks for SimpliSafe.");
+        }
+
+        if (!security->getSystemCurState()) { // set initial state
+            HK_ERROR_LINE("Error getting security system initial state.");
+        }
+        if (!lock->getLockCurState()) { // set initial state
+            HK_ERROR_LINE("Error getting lock initial state.");
+        }
+    });
 }
 
-void loop()
-{
+void loop() {
     homeSpan.poll();
+    ss.loop();
 }
