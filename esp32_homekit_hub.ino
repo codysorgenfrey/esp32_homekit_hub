@@ -1,6 +1,5 @@
 /*
 TODO:
-1. Weather API: Get weather
 2. Inkbird: Figure out bluetooth to read sensor
 3. HK: Hook up accessories
 4. List dependencies for project in README.md
@@ -9,16 +8,19 @@ TODO:
 #include "common.h"
 #include <HomeSpan.h>
 #include <SimpliSafe3.h>
+#include <MyQ.h>
 #include "switchAccessory.h"
 #include "securitySystemAccessory.h"
 #include "lockAccessory.h"
 #include "garageDoorAccessory.h"
 #include "tempSensorAccessory.h"
-#include "weatherAPIAccessory.h"
 
 SimpliSafe3 ss;
 SecuritySystemAccessory *security;
 LockAccessory *lock;
+
+MyQ mq;
+GarageDoorAccessory *door;
 
 void setup()
 {
@@ -87,7 +89,7 @@ void setup()
             new Characteristic::FirmwareRevision(HK_SKETCH_VER);
             new Characteristic::Identify();
 
-        new GarageDoorAccessory();
+        door = new GarageDoorAccessory(&mq);
 
     new SpanAccessory();
         new Service::AccessoryInformation();
@@ -100,21 +102,11 @@ void setup()
 
         new TempSensorAccessory();
 
-    new SpanAccessory();
-        new Service::AccessoryInformation();
-            new Characteristic::Name(WA_NAME);
-            new Characteristic::Manufacturer(WA_MANUFACTURER);
-            new Characteristic::SerialNumber(WA_SERIALNUM);  
-            new Characteristic::Model(WA_MODEL);
-            new Characteristic::FirmwareRevision(HK_SKETCH_VER);
-            new Characteristic::Identify();
-
-        new WeatherAPIAccessory();
-
     homeSpan.setWifiCallback([](){
         // finish setup after wifi connects
-        HK_ERROR_LINE("Testing error system...");
+        HK_ERROR_LINE("Rebooting system...");
         
+        // SimpliSafe
         if (!ss.setup()) {
             HK_ERROR_LINE("Error setting up SimpliSafe API.");
         }
@@ -131,10 +123,17 @@ void setup()
         if (!lock->getLockCurState()) { // set initial state
             HK_ERROR_LINE("Error getting lock initial state.");
         }
+
+        // MyQ
+        if (!mq.setup()) {
+            HK_ERROR_LINE("Error setting up MyQ API.");
+        }
+        door->startPolling();
     });
 }
 
 void loop() {
     homeSpan.poll();
     ss.loop();
+    mq.loop();
 }

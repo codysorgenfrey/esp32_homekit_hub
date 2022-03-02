@@ -22,41 +22,36 @@
 #define WM_NAME "WeMo Smart Switch"
 #define WM_MODEL "F7C027"
 #define WM_SERIALNUM "221620K01028B9"
-#define WM_IP "192.168.86.42"
 #define WM_UPDATE_INTERVAL 60000 // 1 minute
 
 // SimpliSafe
 #define SS_MANUFACTURER "SimpliSafe"
 #define SS_NAME "SimpliSafe Alarm"
-#define SS_MODEL "Soundin"
-#define SS_SERIALNUM "16171819"
+#define SS_MODEL "SSBS3"
+#define SS_SERIALNUM "003EE648"
 
 // Smart Lock
 #define SL_MANUFACTURER "SimpliSafe"
 #define SL_NAME "SimpliSafe Smart Lock"
 #define SL_MODEL "SSLK1BB"
-#define SL_SERIALNUM "0104d22a"
+#define SL_SERIALNUM "0104D22A"
 
 // Garage Door
-#define GD_MANUFACTURER "Liftmaster"
+#define GD_MANUFACTURER "Chamberlain Group"
 #define GD_NAME "Liftmaster Garage Door Opener"
-#define GD_MODEL "Superlift"
-#define GD_SERIALNUM "CG28634B59AD"
+#define GD_MODEL "84501"
+#define GD_SERIALNUM "CG28634B59AD" // for myq-cloud api
+// #define GD_SERIALNUM "12000B9CB8" // for lan api
 #define GD_UPDATE_INTERVAL 60000 // 1 minute
+#define GD_ACTIVE_UPDATE_INTERVAL 5000 // 5 seconds
+#define GD_ACTIVE_UPDATE_DURATION 120000 // 2 minutes
 
 // Temp Sensor
 #define TS_MANUFACTURER "InkBird"
 #define TS_NAME "InkBird Temperature Sensor"
 #define TS_MODEL "IBS-TH2"
 #define TS_SERIALNUM "123456"
-#define TS_UPDATE_INTERVAL 60000 // 1 minute
-
-// Weather API
-#define WA_MANUFACTURER "Open Weather Map"
-#define WA_NAME "Outside Temperature"
-#define WA_MODEL "12345"
-#define WA_SERIALNUM "123456"
-#define WA_UPDATE_INTERVAL 1800000 // 30 minutes
+#define TS_UPDATE_INTERVAL 300000 // 5 minutes
 
 // Logging
 #define HK_DEBUG_LEVEL_ERROR 0

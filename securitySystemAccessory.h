@@ -50,8 +50,7 @@ struct SecuritySystemAccessory : Service::SecuritySystem {
 
     boolean update() {
         boolean success = true;
-        if (tarState->updated()) success = setSystemCurState();
-
+        if (tarState->updated()) success &= setSystemCurState();
         return success;
     }
 
@@ -109,6 +108,7 @@ struct SecuritySystemAccessory : Service::SecuritySystem {
             // Disarm
             HK_LOG_LINE("Got a disarm event.");
             curState->setVal(int(HOMEKIT_SECURITYSYSTEM_CURRENTSTATE_OFF));
+            tarState->setVal(int(HOMEKIT_SECURITYSYSTEM_TARGETSTATE_OFF));
             break;
 
         case 3401:
@@ -118,6 +118,7 @@ struct SecuritySystemAccessory : Service::SecuritySystem {
             // Away arm
             HK_LOG_LINE("Got an away arm event.");
             curState->setVal(int(HOMEKIT_SECURITYSYSTEM_CURRENTSTATE_AWAY));
+            tarState->setVal(int(HOMEKIT_SECURITYSYSTEM_TARGETSTATE_AWAY));
             break;
 
         case 3441:
@@ -125,6 +126,7 @@ struct SecuritySystemAccessory : Service::SecuritySystem {
             // Home arm
             HK_LOG_LINE("Got a home arm event.");
             curState->setVal(int(HOMEKIT_SECURITYSYSTEM_CURRENTSTATE_HOME));
+            tarState->setVal(int(HOMEKIT_SECURITYSYSTEM_TARGETSTATE_HOME));
             break;
 
         case 9401:
@@ -141,7 +143,7 @@ struct SecuritySystemAccessory : Service::SecuritySystem {
             break;
         
         default:
-            HK_LOG_LINE("Got an event. %i", eventId);
+            HK_LOG_LINE("Got an event I don't care about. %i", eventId);
             break;
         }
     }

@@ -35,8 +35,7 @@ struct LockAccessory : Service::LockMechanism {
 
     boolean update() {
         boolean success = true;
-        if (tarState->updated()) success = setLockCurState();
-
+        if (tarState->updated()) success &= setLockCurState();
         return success;
     }
 
@@ -67,11 +66,13 @@ struct LockAccessory : Service::LockMechanism {
             // DOORLOCK_UNLOCKED
             HK_LOG_LINE("Got an unlock event.");
             curState->setVal(int(HOMEKIT_LOCK_CURRENT_STATE_UNSECURED));
+            tarState->setVal(int(HOMEKIT_LOCK_CURRENT_STATE_UNSECURED));
             break;
         case 9701:
             // DOORLOCK_LOCKED
             HK_LOG_LINE("Got a lock event.");
             curState->setVal(int(HOMEKIT_LOCK_CURRENT_STATE_SECURED));
+            tarState->setVal(int(HOMEKIT_LOCK_CURRENT_STATE_SECURED));
             break;
         case 9703:
             // DOORLOCK_ERROR
@@ -80,7 +81,7 @@ struct LockAccessory : Service::LockMechanism {
             break;
         
         default:
-            HK_LOG_LINE("Got an event. %i", eventId);
+            HK_LOG_LINE("Got an event I don't care about. %i", eventId);
             break;
         }
     }
