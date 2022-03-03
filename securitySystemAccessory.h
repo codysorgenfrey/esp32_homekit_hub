@@ -1,3 +1,4 @@
+#pragma once
 #ifndef __SECURITYSYSTEMACCESSORY_H__
 #define __SECURITYSYSTEMACCESSORY_H__
 

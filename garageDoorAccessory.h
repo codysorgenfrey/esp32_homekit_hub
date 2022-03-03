@@ -1,3 +1,4 @@
+#pragma once
 #ifndef __GARAGEDOORACCESSORY_H__
 #define __GARAGEDOORACCESSORY_H__
 
@@ -66,6 +67,9 @@ struct GarageDoorAccessory : Service::GarageDoorOpener {
                 if (curState->timeVal() >= GD_ACTIVE_UPDATE_DURATION) active = false;
             }
         }
+        if (obstructed->getVal() && obstructed->timeVal() >= GD_OBSTRUCTED_DURATION) {
+            obstructed->setVal(false);
+        }
     }
 
     void startPolling() {
@@ -79,6 +83,11 @@ struct GarageDoorAccessory : Service::GarageDoorOpener {
         
         if (res != MYQ_DOOR_GETSTATE_UNKNOWN) {
             lastPoll = millis();
+            if (res == MYQ_DOOR_GETSTATE_AUTOREVERSE) {
+                HK_LOG_LINE("Door is obstructed.");
+                obstructed->setVal(true);
+            }
+
             int myQCurState = myQToHomekitState[res];
             if (myQCurState != curState->getVal()) {
                 HK_LOG_LINE("Found updated garage door state.");
@@ -88,6 +97,12 @@ struct GarageDoorAccessory : Service::GarageDoorOpener {
                     myQCurState == HOMEKIT_GARAGE_DOOR_CURRENT_STATE_OPEN
                 ) {
                     tarState->setVal(myQCurState);
+                }
+                if (
+                    myQCurState == HOMEKIT_GARAGE_DOOR_CURRENT_STATE_OPENING ||
+                    myQCurState == HOMEKIT_GARAGE_DOOR_CURRENT_STATE_CLOSING
+                ) {
+                    active = true;
                 }
             }
         } else {

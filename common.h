@@ -1,10 +1,10 @@
+#pragma once
 #ifndef __COMMON_H__
 #define __COMMON_H__
 
 #include <Arduino.h>
-#include "secrets.h"
 #include <SheetsLogger.h>
-#include <stdarg.h>
+#include "secrets.h"
 
 // Board stuff
 #define STATUS_LED BUILTIN_LED
@@ -45,6 +45,7 @@
 #define GD_UPDATE_INTERVAL 60000 // 1 minute
 #define GD_ACTIVE_UPDATE_INTERVAL 5000 // 5 seconds
 #define GD_ACTIVE_UPDATE_DURATION 120000 // 2 minutes
+#define GD_OBSTRUCTED_DURATION 30000 // 30 seconds
 
 // Temp Sensor
 #define TS_MANUFACTURER "InkBird"
@@ -59,22 +60,14 @@
 
 #define HK_DEBUG HK_DEBUG_LEVEL_INFO
 
-void hk_printf(bool cloud, const char *cloudMsg, const char *format, ...) {
-    va_list args;
-    va_start(args, format);
-    vprintf(format, args);
-    va_end(args);
-    if (cloud) sheetLog(SHEETS_URL, "Homekit Hub", cloudMsg);
-}
-
 #if HK_DEBUG >= HK_DEBUG_LEVEL_ERROR
-    #define HK_ERROR_LINE(message, ...) hk_printf(true, message, "!!!ERROR!!! [%7d][%.2fkb] HomeKit Hub: " message "\n", millis(), (esp_get_free_heap_size() * 0.001f), ##__VA_ARGS__)
+    #define HK_ERROR_LINE(message, ...) sl_printf(SHEETS_URL, "Homekit Hub", "ERR [%7lu][%.2fkb] HomeKit Hub: " message "\n", millis(), (esp_get_free_heap_size() * 0.001f), ##__VA_ARGS__)
 #else
     #define HK_ERROR_LINE(message, ...)
 #endif
 
 #if HK_DEBUG >= HK_DEBUG_LEVEL_INFO
-    #define HK_LOG_LINE(message, ...) printf(">>> [%7d][%.2fkb] HomeKit Hub: " message "\n", millis(), (esp_get_free_heap_size() * 0.001f), ##__VA_ARGS__)
+    #define HK_LOG_LINE(message, ...) printf(">>> [%7lu][%.2fkb] HomeKit Hub: " message "\n", millis(), (esp_get_free_heap_size() * 0.001f), ##__VA_ARGS__)
 #else
     #define HK_LOG_LINE(message, ...)
 #endif

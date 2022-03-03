@@ -1,3 +1,4 @@
+#pragma once
 #ifndef __LOCKACCESSORY_H__
 #define __LOCKACCESSORY_H__
 

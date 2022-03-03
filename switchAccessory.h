@@ -1,3 +1,4 @@
+#pragma once
 #ifndef __SWITCHACCESSORY_H__
 #define __SWITCHACCESSORY_H__
 
@@ -10,6 +11,7 @@
 
 struct WeMoSwitchAccessory : Service::Switch {
     SpanCharacteristic *on;
+    bool polling = false;
     unsigned long lastPoll; // we have to track polling ourselves since we might not update each poll
 
     WeMoSwitchAccessory() : Service::Switch() {
@@ -23,9 +25,17 @@ struct WeMoSwitchAccessory : Service::Switch {
     }
 
     void loop() {
-        unsigned long now = millis();
-        unsigned long timeDiff = max(now, lastPoll) - min(now, lastPoll);
-        if (timeDiff >= WM_UPDATE_INTERVAL) pollOnState();
+        if (polling) {
+            unsigned long now = millis();
+            unsigned long timeDiff = max(now, lastPoll) - min(now, lastPoll);
+            if (timeDiff >= WM_UPDATE_INTERVAL) pollOnState();
+        }
+    }
+
+    void startPolling() {
+        HK_LOG_LINE("Starting poll for WeMo switch state.");
+        polling = true;
+        pollOnState();
     }
 
     String request(String payload, String action) {

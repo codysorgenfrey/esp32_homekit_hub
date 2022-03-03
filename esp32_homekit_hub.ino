@@ -1,8 +1,7 @@
 /*
 TODO:
-2. Inkbird: Figure out bluetooth to read sensor
-3. HK: Hook up accessories
-4. List dependencies for project in README.md
+1. Inkbird: Figure out bluetooth to read sensor
+2. List dependencies for project in README.md
 */
 
 #include "common.h"
@@ -15,11 +14,13 @@ TODO:
 #include "garageDoorAccessory.h"
 #include "tempSensorAccessory.h"
 
-SimpliSafe3 ss;
+WeMoSwitchAccessory *mySwitch;
+
+SimpliSafe3 *ss;
 SecuritySystemAccessory *security;
 LockAccessory *lock;
 
-MyQ mq;
+MyQ *mq;
 GarageDoorAccessory *door;
 
 void setup()
@@ -56,7 +57,7 @@ void setup()
             new Characteristic::FirmwareRevision(HK_SKETCH_VER);
             new Characteristic::Identify();
 
-        new WeMoSwitchAccessory();
+        mySwitch = new WeMoSwitchAccessory();
 
     new SpanAccessory();
         new Service::AccessoryInformation();
@@ -67,7 +68,8 @@ void setup()
             new Characteristic::FirmwareRevision(HK_SKETCH_VER);
             new Characteristic::Identify();
 
-        security = new SecuritySystemAccessory(&ss);
+        ss = new SimpliSafe3();
+        security = new SecuritySystemAccessory(ss);
 
     new SpanAccessory();
         new Service::AccessoryInformation();
@@ -78,7 +80,7 @@ void setup()
             new Characteristic::FirmwareRevision(HK_SKETCH_VER);
             new Characteristic::Identify();
 
-        lock = new LockAccessory(&ss);
+        lock = new LockAccessory(ss);
 
     new SpanAccessory();
         new Service::AccessoryInformation();
@@ -89,7 +91,8 @@ void setup()
             new Characteristic::FirmwareRevision(HK_SKETCH_VER);
             new Characteristic::Identify();
 
-        door = new GarageDoorAccessory(&mq);
+        mq = new MyQ();
+        door = new GarageDoorAccessory(mq);
 
     new SpanAccessory();
         new Service::AccessoryInformation();
@@ -105,12 +108,14 @@ void setup()
     homeSpan.setWifiCallback([](){
         // finish setup after wifi connects
         HK_ERROR_LINE("Rebooting system...");
+
+        mySwitch->startPolling();
         
         // SimpliSafe
-        if (!ss.setup()) {
+        if (!ss->setup()) {
             HK_ERROR_LINE("Error setting up SimpliSafe API.");
         }
-        if (!ss.startListeningToEvents([](int eventId) {
+        if (!ss->startListeningToEvents([](int eventId) {
             security->listenToEvents(eventId);
             lock->listenToEvents(eventId);
         }, nullptr, nullptr)) {
@@ -125,7 +130,7 @@ void setup()
         }
 
         // MyQ
-        if (!mq.setup()) {
+        if (!mq->setup()) {
             HK_ERROR_LINE("Error setting up MyQ API.");
         }
         door->startPolling();
@@ -134,6 +139,6 @@ void setup()
 
 void loop() {
     homeSpan.poll();
-    ss.loop();
-    mq.loop();
+    ss->loop();
+    mq->loop();
 }

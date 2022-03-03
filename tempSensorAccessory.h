@@ -1,3 +1,4 @@
+#pragma once
 #ifndef __TEMPERATURESENSORACCESSORY_H__
 #define __TEMPERATURESENSORACCESSORY_H__
 
