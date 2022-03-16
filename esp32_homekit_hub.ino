@@ -23,6 +23,34 @@ LockAccessory *lock;
 MyQ *mq;
 GarageDoorAccessory *door;
 
+bool wifiConnected = false;
+
+unsigned long lastCheck;
+#define HEAP_CHECK_INT 1000 * 60 * 60 // 1 hour
+
+void resetAPIs(const char *v) {
+    HK_LOG_LINE("Reseting APIs. Option: %s", v);
+    String input(v);
+    input.replace("E", "");
+    input.replace(" ", "");
+    input.replace("\r", "");
+    input.replace("\n", "");
+
+    if (input.equals("all")) {
+        HK_LOG_LINE("Reseting authorization data for all.");
+        ss->setup(true);
+        mq->setup(true);
+    } else if (input.equals("SimpliSafe")) {
+        HK_LOG_LINE("Reseting authorization data for SimpliSafe.");
+        ss->setup(true);
+    } else if (input.equals("MyQ")) {
+        HK_LOG_LINE("Reseting authorization data for MyQ.");
+        mq->setup(true);
+    } else {
+        HK_ERROR_LINE("Command not found: \"%s\".", v);
+    }
+}
+
 void setup()
 {
     #if HK_DEBUG
@@ -105,9 +133,13 @@ void setup()
 
         new TempSensorAccessory();
 
+    new SpanUserCommand('E', "<api> - Erase authorization data for linked APIs. API options are \"all\", \"SimpliSafe\", or \"MyQ\".", resetAPIs);
+
     homeSpan.setWifiCallback([](){
         // finish setup after wifi connects
-        HK_ERROR_LINE("Rebooting system...");
+        #if HK_DEBUG >= HK_DEBUG_LEVEL_ERROR
+            sl_printf(SHEETS_URL, "Homekit Hub", "Rebooting system...\n");
+        #endif
 
         mySwitch->startPolling();
         
@@ -134,11 +166,23 @@ void setup()
             HK_ERROR_LINE("Error setting up MyQ API.");
         }
         door->startPolling();
+
+        lastCheck = millis() + HEAP_CHECK_INT + (60000 * 2); // trigger heap check in x minutes
+        wifiConnected = true;
     });
 }
 
 void loop() {
+    unsigned long now = millis();
+    unsigned long diff = max(now, lastCheck) - min(now, lastCheck);
+    if (diff >= HEAP_CHECK_INT) {
+        sl_printf(SHEETS_URL, "Homekit Hub", "Heap size: %.2fkb\n", (esp_get_free_heap_size() * 0.001f));
+        lastCheck = now;
+    }
+
     homeSpan.poll();
-    ss->loop();
-    mq->loop();
+    if (wifiConnected) {
+        ss->loop();
+        mq->loop();
+    }
 }

@@ -55,6 +55,7 @@
 #define TS_UPDATE_INTERVAL 300000 // 5 minutes
 
 // Logging
+#define HK_DEBUG_LEVEL_NONE -1
 #define HK_DEBUG_LEVEL_ERROR 0
 #define HK_DEBUG_LEVEL_INFO 1
 
