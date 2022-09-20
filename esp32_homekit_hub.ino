@@ -1,7 +1,6 @@
 /*
 TODO:
-1. Inkbird: Figure out bluetooth to read sensor
-2. List dependencies for project in README.md
+1. List dependencies for project in README.md
 */
 
 #include "common.h"
@@ -12,7 +11,6 @@ TODO:
 #include "securitySystemAccessory.h"
 #include "lockAccessory.h"
 #include "garageDoorAccessory.h"
-#include "tempSensorAccessory.h"
 
 WeMoSwitchAccessory *mySwitch;
 
@@ -26,7 +24,6 @@ GarageDoorAccessory *door;
 bool wifiConnected = false;
 
 unsigned long lastCheck;
-#define HEAP_CHECK_INT 1000 * 60 * 60 // 1 hour
 
 void resetAPIs(const char *v) {
     HK_LOG_LINE("Reseting APIs. Option: %s", v);
@@ -53,7 +50,7 @@ void resetAPIs(const char *v) {
 
 void setup()
 {
-    #if HK_DEBUG
+    #if HK_DEBUG > HK_DEBUG_LEVEL_NONE
         Serial.begin(115200);
         while (!Serial) { ; }; // wait for serial
     #endif
@@ -122,22 +119,11 @@ void setup()
         mq = new MyQ();
         door = new GarageDoorAccessory(mq);
 
-    new SpanAccessory();
-        new Service::AccessoryInformation();
-            new Characteristic::Name(TS_NAME);
-            new Characteristic::Manufacturer(TS_MANUFACTURER);
-            new Characteristic::SerialNumber(TS_SERIALNUM);  
-            new Characteristic::Model(TS_MODEL);
-            new Characteristic::FirmwareRevision(HK_SKETCH_VER);
-            new Characteristic::Identify();
-
-        new TempSensorAccessory();
-
     new SpanUserCommand('E', "<api> - Erase authorization data for linked APIs. API options are \"all\", \"SimpliSafe\", or \"MyQ\".", resetAPIs);
 
     homeSpan.setWifiCallback([](){
         // finish setup after wifi connects
-        #if HK_DEBUG >= HK_DEBUG_LEVEL_ERROR
+        #if HK_DEBUG > HK_DEBUG_LEVEL_NONE
             sl_printf(SHEETS_URL, "Homekit Hub", "Rebooting system...\n");
         #endif
 
