@@ -52,7 +52,7 @@
 #define TS_NAME "InkBird Temperature Sensor"
 #define TS_MODEL "IBS-TH2"
 #define TS_SERIALNUM "123456"
-#define TS_UPDATE_INTERVAL 300000 // 5 minutes
+#define TS_UPDATE_INTERVAL 1800000 // 30 minutes
 
 // Logging
 #define HK_DEBUG_LEVEL_NONE -1
