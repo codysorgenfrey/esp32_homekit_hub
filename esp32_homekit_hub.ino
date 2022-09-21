@@ -71,6 +71,7 @@ void webSocketEvent(uint8_t num, WStype_t type, uint8_t *payload, size_t length)
         break;
         case WStype_TEXT: {
             HK_LOG_LINE("[%u] get Text: %s\n", num, payload);
+            
 
             if (String((char *)payload) != String("Connected")) {
                 StaticJsonDocument<256> doc; 
@@ -88,6 +89,8 @@ void webSocketEvent(uint8_t num, WStype_t type, uint8_t *payload, size_t length)
                         }
                     }
                 }
+
+                doc.clear();
             }
 
             break;
