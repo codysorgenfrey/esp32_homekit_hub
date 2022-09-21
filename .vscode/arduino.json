@@ -1,0 +1,7 @@
+{
+    "sketch": "esp32_homekit_hub.ino",
+    "configuration": "PSRAM=disabled,PartitionScheme=default,FlashFreq=80,UploadSpeed=1500000,DebugLevel=none",
+    "board": "esp32:esp32:d32_pro",
+    "port": "COM4",
+    "output": "./build"
+}
