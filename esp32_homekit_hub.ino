@@ -216,6 +216,7 @@ void setup()
         }
         door->startPolling();
 
+        webSocket.setAuthorization(WEBSOCKET_USER, WEBSOCKET_PASS);
         webSocket.begin();
         webSocket.onEvent(webSocketEvent);
 
