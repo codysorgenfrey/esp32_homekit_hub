@@ -1,8 +1,3 @@
-/*
-TODO:
-1. List dependencies for project in README.md
-*/
-
 #include "common.h"
 #include <HomeSpan.h>
 #include <WebSocketsServer.h>
