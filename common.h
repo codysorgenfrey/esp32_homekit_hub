@@ -47,6 +47,12 @@
 #define GD_ACTIVE_UPDATE_DURATION 120000 // 2 minutes
 #define GD_OBSTRUCTED_DURATION 30000 // 30 seconds
 
+// Temp Sensor
+#define TS_MANUFACTURER "InkBird"
+#define TS_NAME "InkBird Temperature Sensor"
+#define TS_MODEL "IBS-TH2"
+#define TS_SERIALNUM "123456"
+
 // Logging
 #define HEAP_CHECK_INT 86400000 // 1 day
 

@@ -5,12 +5,15 @@ TODO:
 
 #include "common.h"
 #include <HomeSpan.h>
+#include <WebSocketsServer.h>
+#include <ArduinoJson.h>
 #include <SimpliSafe3.h>
 #include <MyQ.h>
 #include "switchAccessory.h"
 #include "securitySystemAccessory.h"
 #include "lockAccessory.h"
 #include "garageDoorAccessory.h"
+#include "tempSensorAccessory.h"
 
 WeMoSwitchAccessory *mySwitch;
 
@@ -20,6 +23,10 @@ LockAccessory *lock;
 
 MyQ *mq;
 GarageDoorAccessory *door;
+
+TempSensorAccessory *tempSensor;
+
+WebSocketsServer webSocket = WebSocketsServer(81);
 
 bool wifiConnected = false;
 
@@ -45,6 +52,56 @@ void resetAPIs(const char *v) {
         mq->setup(true);
     } else {
         HK_ERROR_LINE("Command not found: \"%s\".", v);
+    }
+}
+
+void webSocketEvent(uint8_t num, WStype_t type, uint8_t *payload, size_t length) {
+    switch (type) {
+        case WStype_DISCONNECTED:
+            HK_LOG_LINE("#%u Disconnected\n", num);
+            break;
+        case WStype_CONNECTED:
+        {
+            IPAddress ip = webSocket.remoteIP(num);
+            HK_LOG_LINE("#%u Connected from %d.%d.%d.%d url: %s\n", num, ip[0], ip[1], ip[2], ip[3], payload);
+
+            // send message to client
+            webSocket.sendTXT(num, "Connected");
+        }
+        break;
+        case WStype_TEXT: {
+            HK_LOG_LINE("[%u] get Text: %s\n", num, payload);
+            
+
+            if (String((char *)payload) != String("Connected")) {
+                StaticJsonDocument<256> doc; 
+                DeserializationError err = deserializeJson(doc, payload);
+
+                if (err) 
+                    HK_ERROR_LINE("Error deserializing json from websocket event. Payload: %s", payload);
+                else {
+                    String device = doc["device"].as<String>();
+                    if (device == String("IBS-TH2")) {
+                        if (tempSensor->handleMessage(doc)) {
+                            webSocket.sendTXT(num, "Success");
+                        } else {
+                            webSocket.sendTXT(num, "Error");
+                        }
+                    }
+                }
+
+                doc.clear();
+            }
+
+            break;
+        }
+        case WStype_BIN:
+        case WStype_ERROR:
+        case WStype_FRAGMENT_TEXT_START:
+        case WStype_FRAGMENT_BIN_START:
+        case WStype_FRAGMENT:
+        case WStype_FRAGMENT_FIN:
+            break;
     }
 }
 
@@ -119,6 +176,17 @@ void setup()
         mq = new MyQ();
         door = new GarageDoorAccessory(mq);
 
+    new SpanAccessory();
+        new Service::AccessoryInformation();
+            new Characteristic::Name(TS_NAME);
+            new Characteristic::Manufacturer(TS_MANUFACTURER);
+            new Characteristic::SerialNumber(TS_SERIALNUM);  
+            new Characteristic::Model(TS_MODEL);
+            new Characteristic::FirmwareRevision(HK_SKETCH_VER);
+            new Characteristic::Identify();
+
+        tempSensor = new TempSensorAccessory();
+
     new SpanUserCommand('E', "<api> - Erase authorization data for linked APIs. API options are \"all\", \"SimpliSafe\", or \"MyQ\".", resetAPIs);
 
     homeSpan.setWifiCallback([](){
@@ -153,6 +221,10 @@ void setup()
         }
         door->startPolling();
 
+        webSocket.setAuthorization(WEBSOCKET_USER, WEBSOCKET_PASS);
+        webSocket.begin();
+        webSocket.onEvent(webSocketEvent);
+
         lastCheck = millis() + HEAP_CHECK_INT + (60000 * 2); // trigger heap check in x minutes
         wifiConnected = true;
     });
@@ -170,5 +242,6 @@ void loop() {
     if (wifiConnected) {
         ss->loop();
         mq->loop();
+        webSocket.loop();
     }
 }
