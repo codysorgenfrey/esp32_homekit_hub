@@ -72,18 +72,20 @@ void webSocketEvent(uint8_t num, WStype_t type, uint8_t *payload, size_t length)
         case WStype_TEXT: {
             HK_LOG_LINE("[%u] get Text: %s\n", num, payload);
 
-            StaticJsonDocument<256> doc; 
-            DeserializationError err = deserializeJson(doc, payload);
+            if (String((char *)payload) != String("Connected")) {
+                StaticJsonDocument<256> doc; 
+                DeserializationError err = deserializeJson(doc, payload);
 
-            if (err) 
-                HK_ERROR_LINE("Error deserializing json from websocket event. Payload: %s", payload);
-            else {
-                String device = doc["device"].as<String>();
-                if (device == String("IBS-TH2")) {
-                    if (tempSensor->handleMessage(doc)) {
-                        webSocket.sendTXT(num, "Success");
-                    } else {
-                        webSocket.sendTXT(num, "Error");
+                if (err) 
+                    HK_ERROR_LINE("Error deserializing json from websocket event. Payload: %s", payload);
+                else {
+                    String device = doc["device"].as<String>();
+                    if (device == String("IBS-TH2")) {
+                        if (tempSensor->handleMessage(doc)) {
+                            webSocket.sendTXT(num, "Success");
+                        } else {
+                            webSocket.sendTXT(num, "Error");
+                        }
                     }
                 }
             }
