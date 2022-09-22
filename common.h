@@ -53,6 +53,13 @@
 #define TS_MODEL "IBS-TH2"
 #define TS_SERIALNUM "123456"
 
+// Heatpump
+#define HP_MANUFACTURER "Mitsubishi"
+#define HP_NAME "Heatpump"
+#define HP_MODEL ""
+#define HP_UPSTAIRS_SERIALNUM "14E32127"
+#define HP_DOWNSTAIRS_SERIALNUM "14E32127"
+
 // Logging
 #define HEAP_CHECK_INT 86400000 // 1 day
 
@@ -60,7 +67,7 @@
 #define HK_DEBUG_LEVEL_ERROR 0
 #define HK_DEBUG_LEVEL_INFO 1
 
-#define HK_DEBUG HK_DEBUG_LEVEL_ERROR
+#define HK_DEBUG HK_DEBUG_LEVEL_INFO
 
 #if HK_DEBUG >= HK_DEBUG_LEVEL_ERROR
     #define HK_ERROR_LINE(message, ...) sl_printf(SHEETS_URL, "Homekit Hub", "ERR [%7lu][%.2fkb] HomeKit Hub: " message "\n", millis(), (esp_get_free_heap_size() * 0.001f), ##__VA_ARGS__)

@@ -1,4 +1,5 @@
 {
     "board": "esp32:esp32:d32_pro",
-    "port": "COM4"
+    "port": "COM4",
+    "sketch": "esp32_homekit_hub.ino"
 }
