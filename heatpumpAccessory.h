@@ -122,8 +122,10 @@ struct HeatpumpAccessory : Service::HeaterCooler {
         String command = doc["command"].as<String>();
         if (command == String("update_settings")) {
             String power = doc["payload"]["power"].as<String>();
-            if (power == String("ON")) active->setVal(ACTIVE_ON);
-            else {
+            if (power == String("ON")) {
+                active->setVal(ACTIVE_ON);
+                fan->active->setVal(ACTIVE_ON);
+            } else {
                 active->setVal(ACTIVE_OFF);
                 curState->setVal(CURRENTHEATERCOOLERSTATE_INACTIVE);
                 fan->active->setVal(ACTIVE_OFF);
@@ -172,7 +174,7 @@ struct HeatpumpAccessory : Service::HeaterCooler {
                 slats->swing->setVal(SWINGMODE_DISABLED);
                 slats->curState->setVal(CURRENTSLATSTATE_FIXED);
                 float vanePos = atof(vane.c_str());
-                float angle = -90 + (((vanePos - 1) * 4) / 180);
+                float angle = -90 + (((vanePos - 1) / 4) * 180);
                 slats->tarAngle->setVal(angle);
                 slats->curAngle->setVal(angle);
             }
