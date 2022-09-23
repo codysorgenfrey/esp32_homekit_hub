@@ -240,6 +240,7 @@ void setup()
         }
         door->startPolling();
 
+        HK_LOG_LINE("Starting websocket for remote accessories.");
         webSocket.setAuthorization(WEBSOCKET_USER, WEBSOCKET_PASS);
         webSocket.begin();
         webSocket.onEvent(webSocketEvent);
