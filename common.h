@@ -40,8 +40,6 @@
 #define GD_MANUFACTURER "Chamberlain Group"
 #define GD_NAME "Liftmaster Garage Door Opener"
 #define GD_MODEL "84501"
-#define GD_SERIALNUM "CG28634B59AD" // for myq-cloud api
-// #define GD_SERIALNUM "12000B9CB8" // for lan api
 #define GD_UPDATE_INTERVAL 60000 // 1 minute
 #define GD_ACTIVE_UPDATE_INTERVAL 5000 // 5 seconds
 #define GD_ACTIVE_UPDATE_DURATION 120000 // 2 minutes
@@ -56,9 +54,10 @@
 // Heatpump
 #define HP_MANUFACTURER "Mitsubishi"
 #define HP_NAME "Heatpump"
-#define HP_MODEL ""
+#define HP_UPSTAIRS_MODEL "MSZ-GL06NA"
+#define HP_DOWNSTAIRS_MODEL "MSZ-GL12NA"
 #define HP_UPSTAIRS_SERIALNUM "14E32127"
-#define HP_DOWNSTAIRS_SERIALNUM "14E32127"
+#define HP_DOWNSTAIRS_SERIALNUM "08E03977"
 
 // Logging
 #define HEAP_CHECK_INT 86400000 // 1 day
