@@ -71,16 +71,15 @@ struct HeatpumpAccessory : Service::HeaterCooler {
     }
 
     boolean update() {
+        HK_LOG_LINE("Update %s from Homekit.", serial);
         StaticJsonDocument<192> doc;
         doc["device"] = serial;
         doc["command"] = "update_settings";
-        doc["payload"]["power"] = active->getNewVal();
+        
+        if (active->getNewVal() == 1) doc["payload"]["power"] = "ON";
+        else doc["payload"]["power"] = "OFF";
 
         switch (tarState->getNewVal()) {
-            case TARGETHEATERCOOLERSTATE_AUTO:
-                doc["payload"]["mode"] = "AUTO";
-                break;
-
             case TARGETHEATERCOOLERSTATE_HEATING:
                 doc["payload"]["mode"] = "HEAT";
                 break;
@@ -90,6 +89,7 @@ struct HeatpumpAccessory : Service::HeaterCooler {
                 break;
             
             default:
+                doc["payload"]["mode"] = "AUTO";
                 break;
         }
 
@@ -112,11 +112,13 @@ struct HeatpumpAccessory : Service::HeaterCooler {
 
         String message;
         serializeJson(doc, message);
+        HK_LOG_LINE("Sending %s: %s", serial, message.c_str());
 
         return webSocket->broadcastTXT(message);
     }
 
     const char* handleMessage(const JsonDocument &doc) {
+        HK_LOG_LINE("Updating homekit from %s", serial);
         String command = doc["command"].as<String>();
         if (command == String("update_settings")) {
             String power = doc["payload"]["power"].as<String>();
@@ -175,6 +177,7 @@ struct HeatpumpAccessory : Service::HeaterCooler {
                 slats->curAngle->setVal(angle);
             }
 
+            HK_LOG_LINE("Success updating settings for %s", serial);
             return "Success";
         } else if (command == String("update_status")) {
             curTemp->setVal(doc["payload"]["roomTemperature"].as<float>());
@@ -188,6 +191,7 @@ struct HeatpumpAccessory : Service::HeaterCooler {
                 curState->setVal(CURRENTHEATERCOOLERSTATE_IDLE); 
                 fan->curState->setVal(CURRENTFANSTATE_IDLE);
             }
+            HK_LOG_LINE("Success updating status for %s", serial);
             return "Success";
         }
 

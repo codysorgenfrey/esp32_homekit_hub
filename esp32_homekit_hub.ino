@@ -67,7 +67,7 @@ void webSocketEvent(uint8_t num, WStype_t type, uint8_t *payload, size_t length)
             break;
         }
         case WStype_TEXT: {
-            HK_LOG_LINE("[%u] says: %s", num, payload);
+            HK_LOG_LINE("#%u says: %s", num, payload);
             String strPayload = String((char *)payload);
 
             if (
