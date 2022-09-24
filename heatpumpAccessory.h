@@ -70,6 +70,7 @@ struct HeatpumpAccessory : Service::HeaterCooler {
     SlatsAccessory *slats;
     WebSocketsServer *webSocket;
     const char *serial;
+    bool initialized = false;
 
     HeatpumpAccessory(WebSocketsServer *inWebSocket, const char *inSerial) : Service::HeaterCooler() {
         active = new Characteristic::Active();
@@ -155,6 +156,13 @@ struct HeatpumpAccessory : Service::HeaterCooler {
         if (updateSettings) {
             updateSettings = false; // clear state
             update();
+        }
+        if (millis() % 15000 == 0 && !initialized) { // once every 15 seconds
+            HK_LOG_LINE("Looking for heatpump %s", serial);
+            String message("{'device':'");
+            message += serial;
+            message += "', 'command':'get_settings'}";
+            webSocket->broadcastTXT(message);
         }
     }
 
@@ -250,6 +258,7 @@ struct HeatpumpAccessory : Service::HeaterCooler {
             curState->setVal(CURRENTHEATERCOOLERSTATE_IDLE); 
             fan->curState->setVal(CURRENTFANSTATE_IDLE);
         }
+
         HK_LOG_LINE("Success updating status for %s", serial);
         return true;
     }
@@ -260,7 +269,10 @@ struct HeatpumpAccessory : Service::HeaterCooler {
         if (command == String("update_settings")) {
             if (updateCurrentState(doc)) return "Success";
         } else if (command == String("replace_settings")) {
-            if (updateTargetState(doc) && updateCurrentState(doc)) return "Success";
+            if (updateTargetState(doc) && updateCurrentState(doc)) {
+                if (!initialized) initialized = true;
+                return "Success";
+            }
         } else if (command == String("update_status")) {
             if (updateStatus(doc)) return "Success";
         }

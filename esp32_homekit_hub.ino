@@ -85,8 +85,6 @@ void webSocketEvent(uint8_t num, WStype_t type, uint8_t *payload, size_t length)
                     else if (device == String(HP_UPSTAIRS_SERIALNUM)) webSocket.sendTXT(num, upstairsHP->handleMessage(doc));
                     else if (device == String(HP_DOWNSTAIRS_SERIALNUM)) webSocket.sendTXT(num, downstairsHP->handleMessage(doc));
                 }
-
-                doc.clear();
             }
 
             break;
@@ -194,16 +192,16 @@ void setup()
 
         upstairsHP = new HeatpumpAccessory(&webSocket, HP_UPSTAIRS_SERIALNUM); 
 
-    new SpanAccessory();
-        new Service::AccessoryInformation();
-            new Characteristic::Name(HP_NAME HP_DOWNSTAIRS_SERIALNUM);
-            new Characteristic::Manufacturer(HP_MANUFACTURER);
-            new Characteristic::SerialNumber(HP_UPSTAIRS_SERIALNUM);  
-            new Characteristic::Model(HP_DOWNSTAIRS_MODEL);
-            new Characteristic::FirmwareRevision(HK_SKETCH_VER);
-            new Characteristic::Identify();
+    // new SpanAccessory();
+    //     new Service::AccessoryInformation();
+    //         new Characteristic::Name(HP_NAME HP_DOWNSTAIRS_SERIALNUM);
+    //         new Characteristic::Manufacturer(HP_MANUFACTURER);
+    //         new Characteristic::SerialNumber(HP_UPSTAIRS_SERIALNUM);  
+    //         new Characteristic::Model(HP_DOWNSTAIRS_MODEL);
+    //         new Characteristic::FirmwareRevision(HK_SKETCH_VER);
+    //         new Characteristic::Identify();
 
-        downstairsHP = new HeatpumpAccessory(&webSocket, HP_DOWNSTAIRS_SERIALNUM); 
+    //     downstairsHP = new HeatpumpAccessory(&webSocket, HP_DOWNSTAIRS_SERIALNUM); 
 
 
     new SpanUserCommand('E', "<api> - Erase authorization data for linked APIs. API options are \"all\", \"SimpliSafe\", or \"MyQ\".", resetAPIs);
