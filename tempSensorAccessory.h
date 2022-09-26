@@ -17,15 +17,17 @@ struct TempSensorAccessory : Service::TemperatureSensor {
         return true;
     }
 
-    bool handleMessage(const JsonDocument &doc) {
+    const char* handleMessage(const JsonDocument &doc) {
+        HK_LOG_LINE("Updating homekit from Inkbird temperature sensor.");
         // only accept one message, update temp.
         String command = doc["command"].as<String>();
         if (command == String("update_temp")) {
             curTemp->setVal(doc["payload"].as<float>());
-            return true;
+            return "Success";
         }
 
-        return false;
+        HK_ERROR_LINE("Error handling temerature sensor message.");
+        return "Error";
     }
 };
 

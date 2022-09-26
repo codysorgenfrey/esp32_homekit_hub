@@ -144,7 +144,7 @@ struct SecuritySystemAccessory : Service::SecuritySystem {
             break;
         
         default:
-            HK_LOG_LINE("Got an event I don't care about. %i", eventId);
+            // HK_LOG_LINE("Got an event I don't care about. %i", eventId);
             break;
         }
     }

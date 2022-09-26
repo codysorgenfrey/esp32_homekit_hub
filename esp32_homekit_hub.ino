@@ -9,6 +9,7 @@
 #include "lockAccessory.h"
 #include "garageDoorAccessory.h"
 #include "tempSensorAccessory.h"
+#include "heatpumpAccessory.h"
 
 WeMoSwitchAccessory *mySwitch;
 
@@ -20,6 +21,8 @@ MyQ *mq;
 GarageDoorAccessory *door;
 
 TempSensorAccessory *tempSensor;
+
+HeatpumpAccessory *upstairsHP, *downstairsHP;
 
 WebSocketsServer webSocket = WebSocketsServer(81);
 
@@ -53,39 +56,35 @@ void resetAPIs(const char *v) {
 void webSocketEvent(uint8_t num, WStype_t type, uint8_t *payload, size_t length) {
     switch (type) {
         case WStype_DISCONNECTED:
-            HK_LOG_LINE("#%u Disconnected\n", num);
+            // HK_LOG_LINE("#%u Disconnected", num);
             break;
-        case WStype_CONNECTED:
-        {
+        case WStype_CONNECTED: {
             IPAddress ip = webSocket.remoteIP(num);
-            HK_LOG_LINE("#%u Connected from %d.%d.%d.%d url: %s\n", num, ip[0], ip[1], ip[2], ip[3], payload);
+            // HK_LOG_LINE("#%u Connected from %d.%d.%d.%d url: %s", num, ip[0], ip[1], ip[2], ip[3], payload);
 
             // send message to client
             webSocket.sendTXT(num, "Connected");
+            break;
         }
-        break;
         case WStype_TEXT: {
-            HK_LOG_LINE("[%u] get Text: %s\n", num, payload);
-            
+            // HK_LOG_LINE("#%u says: %s", num, payload);
+            String strPayload = String((char *)payload);
 
-            if (String((char *)payload) != String("Connected")) {
-                StaticJsonDocument<256> doc; 
+            if (
+                strPayload != String("Connected") &&
+                strPayload != String("Error") &&
+                strPayload != String("Success")
+            ) {
+                StaticJsonDocument<192> doc; 
                 DeserializationError err = deserializeJson(doc, payload);
 
-                if (err) 
-                    HK_ERROR_LINE("Error deserializing json from websocket event. Payload: %s", payload);
+                if (err) HK_ERROR_LINE("Error deserializing json from websocket event. Payload: %s", payload);
                 else {
                     String device = doc["device"].as<String>();
-                    if (device == String("IBS-TH2")) {
-                        if (tempSensor->handleMessage(doc)) {
-                            webSocket.sendTXT(num, "Success");
-                        } else {
-                            webSocket.sendTXT(num, "Error");
-                        }
-                    }
+                    if (device == String("IBS-TH2")) webSocket.sendTXT(num, tempSensor->handleMessage(doc));
+                    else if (device == String(HP_UPSTAIRS_SERIALNUM)) webSocket.sendTXT(num, upstairsHP->handleMessage(doc));
+                    else if (device == String(HP_DOWNSTAIRS_SERIALNUM)) webSocket.sendTXT(num, downstairsHP->handleMessage(doc));
                 }
-
-                doc.clear();
             }
 
             break;
@@ -182,6 +181,29 @@ void setup()
 
         tempSensor = new TempSensorAccessory();
 
+    new SpanAccessory();
+        new Service::AccessoryInformation();
+            new Characteristic::Name(HP_NAME HP_UPSTAIRS_SERIALNUM);
+            new Characteristic::Manufacturer(HP_MANUFACTURER);
+            new Characteristic::SerialNumber(HP_UPSTAIRS_SERIALNUM);  
+            new Characteristic::Model(HP_UPSTAIRS_MODEL);
+            new Characteristic::FirmwareRevision(HK_SKETCH_VER);
+            new Characteristic::Identify();
+
+        upstairsHP = new HeatpumpAccessory(&webSocket, HP_UPSTAIRS_SERIALNUM); 
+
+    new SpanAccessory();
+        new Service::AccessoryInformation();
+            new Characteristic::Name(HP_NAME HP_DOWNSTAIRS_SERIALNUM);
+            new Characteristic::Manufacturer(HP_MANUFACTURER);
+            new Characteristic::SerialNumber(HP_UPSTAIRS_SERIALNUM);  
+            new Characteristic::Model(HP_DOWNSTAIRS_MODEL);
+            new Characteristic::FirmwareRevision(HK_SKETCH_VER);
+            new Characteristic::Identify();
+
+        downstairsHP = new HeatpumpAccessory(&webSocket, HP_DOWNSTAIRS_SERIALNUM); 
+
+
     new SpanUserCommand('E', "<api> - Erase authorization data for linked APIs. API options are \"all\", \"SimpliSafe\", or \"MyQ\".", resetAPIs);
 
     homeSpan.setWifiCallback([](){
@@ -216,6 +238,7 @@ void setup()
         }
         door->startPolling();
 
+        HK_LOG_LINE("Starting websocket for remote accessories.");
         webSocket.setAuthorization(WEBSOCKET_USER, WEBSOCKET_PASS);
         webSocket.begin();
         webSocket.onEvent(webSocketEvent);
