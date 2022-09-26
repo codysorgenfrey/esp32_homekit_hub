@@ -106,7 +106,7 @@ struct HeatpumpAccessory : Service::HeaterCooler {
     }
 
     boolean update() {
-        HK_LOG_LINE("Update %s from Homekit.", serial);
+        HK_LOG_LINE("Updating %s from Homekit.", serial);
         StaticJsonDocument<192> doc;
         doc["device"] = serial;
         doc["command"] = "update_settings";
@@ -147,7 +147,7 @@ struct HeatpumpAccessory : Service::HeaterCooler {
 
         String message;
         serializeJson(doc, message);
-        HK_LOG_LINE("Sending %s: %s", serial, message.c_str());
+        // HK_LOG_LINE("Sending %s: %s", serial, message.c_str());
 
         return webSocket->broadcastTXT(message);
     }
@@ -215,7 +215,7 @@ struct HeatpumpAccessory : Service::HeaterCooler {
             slats->tarAngle->setVal(vaneAngleFromSetting(vane.c_str()));
         }
 
-        HK_LOG_LINE("Success replacing target settings for %s", serial);
+        // HK_LOG_LINE("Success replacing target settings for %s", serial);
         return true;
     }
 
@@ -242,7 +242,7 @@ struct HeatpumpAccessory : Service::HeaterCooler {
             slats->curAngle->setVal(vaneAngleFromSetting(vane.c_str()));
         }
 
-        HK_LOG_LINE("Success updating settings for %s", serial);
+        // HK_LOG_LINE("Success updating settings for %s", serial);
         return true;
     }
 
@@ -259,12 +259,12 @@ struct HeatpumpAccessory : Service::HeaterCooler {
             fan->curState->setVal(CURRENTFANSTATE_IDLE);
         }
 
-        HK_LOG_LINE("Success updating status for %s", serial);
+        // HK_LOG_LINE("Success updating status for %s", serial);
         return true;
     }
 
     const char* handleMessage(const JsonDocument &doc) {
-        HK_LOG_LINE("Updating homekit from %s", serial);
+        HK_LOG_LINE("Updating Homekit from %s", serial);
         String command = doc["command"].as<String>();
         if (command == String("update_settings")) {
             if (updateCurrentState(doc)) return "Success";

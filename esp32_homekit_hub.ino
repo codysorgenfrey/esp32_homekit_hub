@@ -56,18 +56,18 @@ void resetAPIs(const char *v) {
 void webSocketEvent(uint8_t num, WStype_t type, uint8_t *payload, size_t length) {
     switch (type) {
         case WStype_DISCONNECTED:
-            HK_LOG_LINE("#%u Disconnected", num);
+            // HK_LOG_LINE("#%u Disconnected", num);
             break;
         case WStype_CONNECTED: {
             IPAddress ip = webSocket.remoteIP(num);
-            HK_LOG_LINE("#%u Connected from %d.%d.%d.%d url: %s", num, ip[0], ip[1], ip[2], ip[3], payload);
+            // HK_LOG_LINE("#%u Connected from %d.%d.%d.%d url: %s", num, ip[0], ip[1], ip[2], ip[3], payload);
 
             // send message to client
             webSocket.sendTXT(num, "Connected");
             break;
         }
         case WStype_TEXT: {
-            HK_LOG_LINE("#%u says: %s", num, payload);
+            // HK_LOG_LINE("#%u says: %s", num, payload);
             String strPayload = String((char *)payload);
 
             if (
@@ -192,16 +192,16 @@ void setup()
 
         upstairsHP = new HeatpumpAccessory(&webSocket, HP_UPSTAIRS_SERIALNUM); 
 
-    // new SpanAccessory();
-    //     new Service::AccessoryInformation();
-    //         new Characteristic::Name(HP_NAME HP_DOWNSTAIRS_SERIALNUM);
-    //         new Characteristic::Manufacturer(HP_MANUFACTURER);
-    //         new Characteristic::SerialNumber(HP_UPSTAIRS_SERIALNUM);  
-    //         new Characteristic::Model(HP_DOWNSTAIRS_MODEL);
-    //         new Characteristic::FirmwareRevision(HK_SKETCH_VER);
-    //         new Characteristic::Identify();
+    new SpanAccessory();
+        new Service::AccessoryInformation();
+            new Characteristic::Name(HP_NAME HP_DOWNSTAIRS_SERIALNUM);
+            new Characteristic::Manufacturer(HP_MANUFACTURER);
+            new Characteristic::SerialNumber(HP_UPSTAIRS_SERIALNUM);  
+            new Characteristic::Model(HP_DOWNSTAIRS_MODEL);
+            new Characteristic::FirmwareRevision(HK_SKETCH_VER);
+            new Characteristic::Identify();
 
-    //     downstairsHP = new HeatpumpAccessory(&webSocket, HP_DOWNSTAIRS_SERIALNUM); 
+        downstairsHP = new HeatpumpAccessory(&webSocket, HP_DOWNSTAIRS_SERIALNUM); 
 
 
     new SpanUserCommand('E', "<api> - Erase authorization data for linked APIs. API options are \"all\", \"SimpliSafe\", or \"MyQ\".", resetAPIs);

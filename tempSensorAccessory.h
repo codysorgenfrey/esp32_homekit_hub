@@ -18,6 +18,7 @@ struct TempSensorAccessory : Service::TemperatureSensor {
     }
 
     const char* handleMessage(const JsonDocument &doc) {
+        HK_LOG_LINE("Updating homekit from Inkbird temperature sensor.");
         // only accept one message, update temp.
         String command = doc["command"].as<String>();
         if (command == String("update_temp")) {
