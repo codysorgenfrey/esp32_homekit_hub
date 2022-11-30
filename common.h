@@ -41,7 +41,7 @@
 #define GD_NAME "Liftmaster Garage Door Opener"
 #define GD_MODEL "84501"
 #define GD_UPDATE_INTERVAL 60000 // 1 minute
-#define GD_ACTIVE_UPDATE_INTERVAL 5000 // 5 seconds
+#define GD_ACTIVE_UPDATE_INTERVAL 10000 // 10 seconds
 #define GD_ACTIVE_UPDATE_DURATION 120000 // 2 minutes
 #define GD_OBSTRUCTED_DURATION 30000 // 30 seconds
 
@@ -65,8 +65,9 @@
 #define HK_DEBUG_LEVEL_NONE -1
 #define HK_DEBUG_LEVEL_ERROR 0
 #define HK_DEBUG_LEVEL_INFO 1
+#define HK_DEBUG_LEVEL_VERBOSE 2
 
-#define HK_DEBUG HK_DEBUG_LEVEL_INFO
+#define HK_DEBUG HK_DEBUG_LEVEL_VERBOSE
 
 #if HK_DEBUG >= HK_DEBUG_LEVEL_ERROR
     #define HK_ERROR_LINE(message, ...) sl_printf(SHEETS_URL, "Homekit Hub", "ERR [%7lu][%.2fkb] HomeKit Hub: " message "\n", millis(), (esp_get_free_heap_size() * 0.001f), ##__VA_ARGS__)
@@ -78,6 +79,12 @@
     #define HK_LOG_LINE(message, ...) printf(">>> [%7lu][%.2fkb] HomeKit Hub: " message "\n", millis(), (esp_get_free_heap_size() * 0.001f), ##__VA_ARGS__)
 #else
     #define HK_LOG_LINE(message, ...)
+#endif
+
+#if HK_DEBUG >= HK_DEBUG_LEVEL_VERBOSE
+    #define HK_VERB_LINE(message, ...) printf(">>> [%7lu][%.2fkb] HomeKit Hub: " message "\n", millis(), (esp_get_free_heap_size() * 0.001f), ##__VA_ARGS__)
+#else
+    #define HK_VERB_LINE(message, ...)
 #endif
 
 #endif

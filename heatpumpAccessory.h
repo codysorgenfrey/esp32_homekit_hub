@@ -128,13 +128,14 @@ struct HeatpumpAccessory : Service::HeaterCooler {
                 break;
         }
 
-        float temp = heatingThreshold->getNewVal();
-        if (tarState->getNewVal() == TARGETHEATERCOOLERSTATE_COOLING) temp = coolingThreshold->getNewVal();
-        else {
+        if (tarState->getNewVal() == TARGETHEATERCOOLERSTATE_COOLING) {
+            doc["payload"]["temperature"] = coolingThreshold->getNewVal();
+        } else if (tarState->getNewVal() == TARGETHEATERCOOLERSTATE_HEATING) {
+            doc["payload"]["temperature"] = heatingThreshold->getNewVal();
+        } else {
             float halfRange = (coolingThreshold->getNewVal() - heatingThreshold->getNewVal()) / 2;
-            temp = heatingThreshold->getNewVal() + halfRange;
+            doc["payload"]["temperature"] = heatingThreshold->getNewVal() + halfRange;
         }
-        doc["payload"]["temperature"] = temp;
 
         if (fan->active->getNewVal() == ACTIVE_OFF) doc["payload"]["fan"] = "QUIET";
         if (fan->tarState->getNewVal() == TARGETFANSTATE_AUTO) doc["payload"]["fan"] = "AUTO";
@@ -147,7 +148,7 @@ struct HeatpumpAccessory : Service::HeaterCooler {
 
         String message;
         serializeJson(doc, message);
-        // HK_LOG_LINE("Sending %s: %s", serial, message.c_str());
+        HK_VERB_LINE("Sending %s: %s", serial, message.c_str());
 
         return webSocket->broadcastTXT(message);
     }
@@ -215,7 +216,7 @@ struct HeatpumpAccessory : Service::HeaterCooler {
             slats->tarAngle->setVal(vaneAngleFromSetting(vane.c_str()));
         }
 
-        // HK_LOG_LINE("Success replacing target settings for %s", serial);
+        HK_VERB_LINE("Success replacing target settings for %s", serial);
         return true;
     }
 
@@ -242,7 +243,7 @@ struct HeatpumpAccessory : Service::HeaterCooler {
             slats->curAngle->setVal(vaneAngleFromSetting(vane.c_str()));
         }
 
-        // HK_LOG_LINE("Success updating settings for %s", serial);
+        HK_VERB_LINE("Success updating settings for %s", serial);
         return true;
     }
 
@@ -251,20 +252,26 @@ struct HeatpumpAccessory : Service::HeaterCooler {
 
         bool operating = doc["payload"]["operating"].as<bool>();
         if (operating) { 
-            if (curTemp->getVal() >= coolingThreshold->getVal()) curState->setVal(CURRENTHEATERCOOLERSTATE_COOLING);
-            else if (curTemp->getVal() <= heatingThreshold->getVal()) curState->setVal(CURRENTHEATERCOOLERSTATE_HEATING);
+            if (tarState->getVal() == TARGETHEATERCOOLERSTATE_HEATING) curState->setVal(CURRENTHEATERCOOLERSTATE_HEATING);
+            else if (tarState->getVal() == TARGETHEATERCOOLERSTATE_COOLING) curState->setVal(CURRENTHEATERCOOLERSTATE_COOLING);
+            else { // for auto mode
+                if (curTemp->getVal() >= coolingThreshold->getVal()) curState->setVal(CURRENTHEATERCOOLERSTATE_COOLING);
+                else if (curTemp->getVal() <= heatingThreshold->getVal()) curState->setVal(CURRENTHEATERCOOLERSTATE_HEATING);
+            }
             fan->curState->setVal(CURRENTFANSTATE_BLOWING);
         } else {
             curState->setVal(CURRENTHEATERCOOLERSTATE_IDLE); 
             fan->curState->setVal(CURRENTFANSTATE_IDLE);
         }
 
-        // HK_LOG_LINE("Success updating status for %s", serial);
+        HK_VERB_LINE("Success updating status for %s", serial);
         return true;
     }
 
     const char* handleMessage(const JsonDocument &doc) {
         HK_LOG_LINE("Updating Homekit from %s", serial);
+        HK_VERB_LINE("%s", doc.as<String>().c_str());   
+
         String command = doc["command"].as<String>();
         if (command == String("update_settings")) {
             if (updateCurrentState(doc)) return "Success";
