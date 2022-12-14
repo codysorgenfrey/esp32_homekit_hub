@@ -56,25 +56,28 @@ void resetAPIs(const char *v) {
 void webSocketEvent(uint8_t num, WStype_t type, uint8_t *payload, size_t length) {
     switch (type) {
         case WStype_DISCONNECTED:
-            // HK_LOG_LINE("#%u Disconnected", num);
+            HK_VERB_LINE("#%u Disconnected", num);
             break;
         case WStype_CONNECTED: {
             IPAddress ip = webSocket.remoteIP(num);
-            // HK_LOG_LINE("#%u Connected from %d.%d.%d.%d url: %s", num, ip[0], ip[1], ip[2], ip[3], payload);
+            HK_VERB_LINE("#%u Connected from %d.%d.%d.%d url: %s", num, ip[0], ip[1], ip[2], ip[3], payload);
 
             // send message to client
             webSocket.sendTXT(num, "Connected");
             break;
         }
         case WStype_TEXT: {
-            // HK_LOG_LINE("#%u says: %s", num, payload);
+            HK_VERB_LINE("#%u says: %s", num, payload);
             String strPayload = String((char *)payload);
 
-            if (
-                strPayload != String("Connected") &&
-                strPayload != String("Error") &&
-                strPayload != String("Success")
-            ) {
+            if (strPayload == String("Connected")) {
+                HK_VERB_LINE("Websocket client #%u connected.", num);
+            } else if (strPayload == String("Error")) {
+                HK_ERROR_LINE("Websocket client #%u error.", num);
+            } else if (strPayload == String("Success")) {
+                HK_LOG_LINE("Websocket client #%u success.", num);
+            }
+            else {
                 StaticJsonDocument<192> doc; 
                 DeserializationError err = deserializeJson(doc, payload);
 

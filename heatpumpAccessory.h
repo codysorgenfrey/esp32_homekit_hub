@@ -123,8 +123,12 @@ struct HeatpumpAccessory : Service::HeaterCooler {
                 doc["payload"]["mode"] = "COOL";
                 break;
             
-            default:
+            case TARGETHEATERCOOLERSTATE_AUTO:
                 doc["payload"]["mode"] = "AUTO";
+                break;
+            
+            default:
+                HK_ERROR_LINE("Heatpump %s unknown target state: %d", serial, tarState->getNewVal());
                 break;
         }
 
@@ -132,9 +136,13 @@ struct HeatpumpAccessory : Service::HeaterCooler {
             doc["payload"]["temperature"] = coolingThreshold->getNewVal();
         } else if (tarState->getNewVal() == TARGETHEATERCOOLERSTATE_HEATING) {
             doc["payload"]["temperature"] = heatingThreshold->getNewVal();
+        } else if (tarState->getNewVal() == TARGETHEATERCOOLERSTATE_AUTO) {
+            float cool = coolingThreshold->getNewVal();
+            float heat = heatingThreshold->getNewVal();
+            float halfRange = (max(cool, heat) - min(cool, heat)) / 2;
+            doc["payload"]["temperature"] = min(cool, heat) + halfRange;
         } else {
-            float halfRange = (coolingThreshold->getNewVal() - heatingThreshold->getNewVal()) / 2;
-            doc["payload"]["temperature"] = heatingThreshold->getNewVal() + halfRange;
+            HK_ERROR_LINE("Heatpump %s unknown target state: %d", serial, tarState->getNewVal());
         }
 
         if (fan->active->getNewVal() == ACTIVE_OFF) doc["payload"]["fan"] = "QUIET";
