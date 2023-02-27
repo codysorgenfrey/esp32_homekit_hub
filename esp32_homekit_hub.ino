@@ -218,6 +218,11 @@ void setup()
         #endif
 
         mySwitch->startPolling();
+
+        // MyQ
+        if (!mq->setup()) {
+            HK_ERROR_LINE("Error setting up MyQ API.");
+        }
         
         // SimpliSafe
         if (!ss->setup()) {
@@ -226,6 +231,7 @@ void setup()
         if (!ss->startListeningToEvents([](int eventId) {
             security->listenToEvents(eventId);
             lock->listenToEvents(eventId);
+            door->listenToEvents(eventId);
         }, nullptr, nullptr)) {
             HK_ERROR_LINE("Error setting up event callbacks for SimpliSafe.");
         }
@@ -236,12 +242,6 @@ void setup()
         if (!lock->getLockCurState()) { // set initial state
             HK_ERROR_LINE("Error getting lock initial state.");
         }
-
-        // MyQ
-        if (!mq->setup()) {
-            HK_ERROR_LINE("Error setting up MyQ API.");
-        }
-        door->startPolling();
 
         HK_LOG_LINE("Starting websocket for remote accessories.");
         webSocket.setAuthorization(WEBSOCKET_USER, WEBSOCKET_PASS);

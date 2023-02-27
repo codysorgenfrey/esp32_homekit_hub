@@ -123,6 +123,19 @@ struct GarageDoorAccessory : Service::GarageDoorOpener {
         HK_ERROR_LINE("Unable to update MyQ door state.");
         return false;
     }
+
+    void listenToEvents(int eventId) {
+        switch (eventId) {
+        case 1429:
+            // ENTRY
+            HK_LOG_LINE("Got an entry event.");
+            break;
+        
+        default:
+            // HK_LOG_LINE("Got an event I don't care about. %i", eventId);
+            break;
+        }
+    }
 };
 
 #endif
