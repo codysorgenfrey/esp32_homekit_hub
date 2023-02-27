@@ -61,35 +61,14 @@ void webSocketEvent(uint8_t num, WStype_t type, uint8_t *payload, size_t length)
         case WStype_CONNECTED: {
             IPAddress ip = webSocket.remoteIP(num);
             HK_VERB_LINE("#%u Connected from %d.%d.%d.%d url: %s", num, ip[0], ip[1], ip[2], ip[3], payload);
-
-            // send message to client
-            webSocket.sendTXT(num, "Connected");
             break;
         }
         case WStype_TEXT: {
             HK_VERB_LINE("#%u says: %s", num, payload);
-            String strPayload = String((char *)payload);
-
-            if (strPayload == String("Connected")) {
-                HK_VERB_LINE("Websocket client #%u connected.", num);
-            } else if (strPayload == String("Error")) {
-                HK_ERROR_LINE("Websocket client #%u error.", num);
-            } else if (strPayload == String("Success")) {
-                HK_LOG_LINE("Websocket client #%u success.", num);
-            }
-            else {
-                StaticJsonDocument<192> doc; 
-                DeserializationError err = deserializeJson(doc, payload);
-
-                if (err) HK_ERROR_LINE("Error deserializing json from websocket event. Payload: %s", payload);
-                else {
-                    String device = doc["device"].as<String>();
-                    if (device == String("IBS-TH2")) webSocket.sendTXT(num, tempSensor->handleMessage(doc));
-                    else if (device == String(HP_UPSTAIRS_SERIALNUM)) webSocket.sendTXT(num, upstairsHP->handleMessage(doc));
-                    else if (device == String(HP_DOWNSTAIRS_SERIALNUM)) webSocket.sendTXT(num, downstairsHP->handleMessage(doc));
-                }
-            }
-
+            tempSensor->handleMessage(payload);
+            mySwitch->handleMessage(payload);
+            upstairsHP->handleMessage(payload);
+            downstairsHP->handleMessage(payload);
             break;
         }
         case WStype_BIN:
@@ -138,7 +117,7 @@ void setup()
             new Characteristic::FirmwareRevision(HK_SKETCH_VER);
             new Characteristic::Identify();
 
-        mySwitch = new WeMoSwitchAccessory();
+        mySwitch = new WeMoSwitchAccessory(&webSocket);
 
     new SpanAccessory();
         new Service::AccessoryInformation();
@@ -184,7 +163,7 @@ void setup()
             new Characteristic::FirmwareRevision(HK_SKETCH_VER);
             new Characteristic::Identify();
 
-        tempSensor = new TempSensorAccessory();
+        tempSensor = new TempSensorAccessory(&webSocket);
 
     new SpanAccessory();
         new Service::AccessoryInformation();
@@ -216,8 +195,6 @@ void setup()
         #if HK_DEBUG > HK_DEBUG_LEVEL_NONE
             sl_printf(SHEETS_URL, "Homekit Hub", "Rebooting system...\n");
         #endif
-
-        mySwitch->startPolling();
         
         // SimpliSafe
         if (!ss->setup()) {

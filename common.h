@@ -16,6 +16,9 @@
 #define HK_SERIALNUM "2020DP1674"
 #define HK_UNIQUE_NAME HK_NAME "-" HK_SERIALNUM
 #define HK_SKETCH_VER "0.0.1"
+#define HUB_COMMAND_RESPONSE "response"
+#define HUB_RESPONSE_ERROR 0
+#define HUB_RESPONSE_OK 1
 
 // WeMo Stuff
 #define WM_MANUFACTURER "Belkin"
@@ -23,6 +26,7 @@
 #define WM_MODEL "F7C027"
 #define WM_SERIALNUM "221620K01028B9"
 #define WM_UPDATE_INTERVAL 60000 // 1 minute
+#define WM_DEVICE_ID "Wemo-Switch"
 
 // SimpliSafe
 #define SS_MANUFACTURER "SimpliSafe"
@@ -50,6 +54,7 @@
 #define TS_NAME "InkBird Temperature Sensor"
 #define TS_MODEL "IBS-TH2"
 #define TS_SERIALNUM "123456"
+#define IB_DEVICE_ID "IBS-TH2"
 
 // Heatpump
 #define HP_MANUFACTURER "Mitsubishi"
@@ -67,7 +72,7 @@
 #define HK_DEBUG_LEVEL_INFO 1
 #define HK_DEBUG_LEVEL_VERBOSE 2
 
-#define HK_DEBUG HK_DEBUG_LEVEL_ERROR
+#define HK_DEBUG HK_DEBUG_LEVEL_VERBOSE
 
 #if HK_DEBUG >= HK_DEBUG_LEVEL_ERROR
     #define HK_ERROR_LINE(message, ...) sl_printf(SHEETS_URL, "Homekit Hub", "ERR [%7lu][%.2fkb] HomeKit Hub: " message "\n", millis(), (esp_get_free_heap_size() * 0.001f), ##__VA_ARGS__)

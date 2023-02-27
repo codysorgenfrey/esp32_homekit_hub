@@ -276,7 +276,14 @@ struct HeatpumpAccessory : Service::HeaterCooler {
         return true;
     }
 
-    const char* handleMessage(const JsonDocument &doc) {
+    const char* handleMessage(uint8_t *message) {
+        DynamicJsonDocument doc(1024);
+        DeserializationError error = deserializeJson(doc, message);
+        if (error) {
+            HK_ERROR_LINE("Error deserializing heatpump message.");
+            return "Error";
+        }
+        
         HK_LOG_LINE("Updating Homekit from %s", serial);
         HK_VERB_LINE("%s", doc.as<String>().c_str());   
 
