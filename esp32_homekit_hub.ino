@@ -2,27 +2,27 @@
 #include <HomeSpan.h>
 #include <WebSocketsServer.h>
 #include <ArduinoJson.h>
-#include <SimpliSafe3.h>
-#include <MyQ.h>
+// #include <SimpliSafe3.h>
+// #include <MyQ.h>
 #include "switchAccessory.h"
-#include "securitySystemAccessory.h"
-#include "lockAccessory.h"
-#include "garageDoorAccessory.h"
-#include "tempSensorAccessory.h"
-#include "heatpumpAccessory.h"
+// #include "securitySystemAccessory.h"
+// #include "lockAccessory.h"
+// #include "garageDoorAccessory.h"
+// #include "tempSensorAccessory.h"
+// #include "heatpumpAccessory.h"
 
 WeMoSwitchAccessory *mySwitch;
 
-SimpliSafe3 *ss;
-SecuritySystemAccessory *security;
-LockAccessory *lock;
+// SimpliSafe3 *ss;
+// SecuritySystemAccessory *security;
+// LockAccessory *lock;
 
-MyQ *mq;
-GarageDoorAccessory *door;
+// MyQ *mq;
+// GarageDoorAccessory *door;
 
-TempSensorAccessory *tempSensor;
+// TempSensorAccessory *tempSensor;
 
-HeatpumpAccessory *upstairsHP, *downstairsHP;
+// HeatpumpAccessory *upstairsHP, *downstairsHP;
 
 WebSocketsServer webSocket = WebSocketsServer(81);
 
@@ -30,28 +30,28 @@ bool wifiConnected = false;
 
 unsigned long lastCheck;
 
-void resetAPIs(const char *v) {
-    HK_LOG_LINE("Reseting APIs. Option: %s", v);
-    String input(v);
-    input.replace("E", "");
-    input.replace(" ", "");
-    input.replace("\r", "");
-    input.replace("\n", "");
+// void resetAPIs(const char *v) {
+//     HK_LOG_LINE("Reseting APIs. Option: %s", v);
+//     String input(v);
+//     input.replace("E", "");
+//     input.replace(" ", "");
+//     input.replace("\r", "");
+//     input.replace("\n", "");
 
-    if (input.equals("all")) {
-        HK_LOG_LINE("Reseting authorization data for all.");
-        ss->setup(true);
-        mq->setup(true);
-    } else if (input.equals("SimpliSafe")) {
-        HK_LOG_LINE("Reseting authorization data for SimpliSafe.");
-        ss->setup(true);
-    } else if (input.equals("MyQ")) {
-        HK_LOG_LINE("Reseting authorization data for MyQ.");
-        mq->setup(true);
-    } else {
-        HK_ERROR_LINE("Command not found: \"%s\".", v);
-    }
-}
+//     if (input.equals("all")) {
+//         HK_LOG_LINE("Reseting authorization data for all.");
+//         ss->setup(true);
+//         mq->setup(true);
+//     } else if (input.equals("SimpliSafe")) {
+//         HK_LOG_LINE("Reseting authorization data for SimpliSafe.");
+//         ss->setup(true);
+//     } else if (input.equals("MyQ")) {
+//         HK_LOG_LINE("Reseting authorization data for MyQ.");
+//         mq->setup(true);
+//     } else {
+//         HK_ERROR_LINE("Command not found: \"%s\".", v);
+//     }
+// }
 
 void webSocketEvent(uint8_t num, WStype_t type, uint8_t *payload, size_t length) {
     switch (type) {
@@ -64,11 +64,20 @@ void webSocketEvent(uint8_t num, WStype_t type, uint8_t *payload, size_t length)
             break;
         }
         case WStype_TEXT: {
-            HK_VERB_LINE("#%u says: %s", num, payload);
-            tempSensor->handleMessage(payload);
-            mySwitch->handleMessage(payload);
-            upstairsHP->handleMessage(payload);
-            downstairsHP->handleMessage(payload);
+            HK_LOG_LINE("#%u says: %s", num, payload);
+            if (strncmp((char *)payload, "{", 1) == 0) { // json payload
+                StaticJsonDocument<192> doc;
+                DeserializationError error = deserializeJson(doc, payload);
+                if (error) {
+                    HK_ERROR_LINE("deserializeJson() failed: %s", error.c_str());
+                    return;
+                }
+
+                // tempSensor->handleMessage(payload);
+                mySwitch->handleMessage(doc);
+                // upstairsHP->handleMessage(payload);
+                // downstairsHP->handleMessage(payload);
+            }
             break;
         }
         case WStype_BIN:
@@ -119,76 +128,76 @@ void setup()
 
         mySwitch = new WeMoSwitchAccessory(&webSocket);
 
-    new SpanAccessory();
-        new Service::AccessoryInformation();
-            new Characteristic::Name(SS_NAME);
-            new Characteristic::Manufacturer(SS_MANUFACTURER);
-            new Characteristic::SerialNumber(SS_SERIALNUM);  
-            new Characteristic::Model(SS_MODEL);
-            new Characteristic::FirmwareRevision(HK_SKETCH_VER);
-            new Characteristic::Identify();
+    // new SpanAccessory();
+    //     new Service::AccessoryInformation();
+    //         new Characteristic::Name(SS_NAME);
+    //         new Characteristic::Manufacturer(SS_MANUFACTURER);
+    //         new Characteristic::SerialNumber(SS_SERIALNUM);  
+    //         new Characteristic::Model(SS_MODEL);
+    //         new Characteristic::FirmwareRevision(HK_SKETCH_VER);
+    //         new Characteristic::Identify();
 
-        ss = new SimpliSafe3();
-        security = new SecuritySystemAccessory(ss);
+    //     ss = new SimpliSafe3();
+    //     security = new SecuritySystemAccessory(ss);
 
-    new SpanAccessory();
-        new Service::AccessoryInformation();
-            new Characteristic::Name(SL_NAME);
-            new Characteristic::Manufacturer(SL_MANUFACTURER);
-            new Characteristic::SerialNumber(SL_SERIALNUM);  
-            new Characteristic::Model(SL_MODEL);
-            new Characteristic::FirmwareRevision(HK_SKETCH_VER);
-            new Characteristic::Identify();
+    // new SpanAccessory();
+    //     new Service::AccessoryInformation();
+    //         new Characteristic::Name(SL_NAME);
+    //         new Characteristic::Manufacturer(SL_MANUFACTURER);
+    //         new Characteristic::SerialNumber(SL_SERIALNUM);  
+    //         new Characteristic::Model(SL_MODEL);
+    //         new Characteristic::FirmwareRevision(HK_SKETCH_VER);
+    //         new Characteristic::Identify();
 
-        lock = new LockAccessory(ss);
+    //     lock = new LockAccessory(ss);
 
-    new SpanAccessory();
-        new Service::AccessoryInformation();
-            new Characteristic::Name(GD_NAME);
-            new Characteristic::Manufacturer(GD_MANUFACTURER);
-            new Characteristic::SerialNumber(GD_SERIALNUM);  
-            new Characteristic::Model(GD_MODEL);
-            new Characteristic::FirmwareRevision(HK_SKETCH_VER);
-            new Characteristic::Identify();
+    // new SpanAccessory();
+    //     new Service::AccessoryInformation();
+    //         new Characteristic::Name(GD_NAME);
+    //         new Characteristic::Manufacturer(GD_MANUFACTURER);
+    //         new Characteristic::SerialNumber(GD_SERIALNUM);  
+    //         new Characteristic::Model(GD_MODEL);
+    //         new Characteristic::FirmwareRevision(HK_SKETCH_VER);
+    //         new Characteristic::Identify();
 
-        mq = new MyQ();
-        door = new GarageDoorAccessory(mq);
+    //     mq = new MyQ();
+    //     door = new GarageDoorAccessory(mq);
 
-    new SpanAccessory();
-        new Service::AccessoryInformation();
-            new Characteristic::Name(TS_NAME);
-            new Characteristic::Manufacturer(TS_MANUFACTURER);
-            new Characteristic::SerialNumber(TS_SERIALNUM);  
-            new Characteristic::Model(TS_MODEL);
-            new Characteristic::FirmwareRevision(HK_SKETCH_VER);
-            new Characteristic::Identify();
+    // new SpanAccessory();
+    //     new Service::AccessoryInformation();
+    //         new Characteristic::Name(TS_NAME);
+    //         new Characteristic::Manufacturer(TS_MANUFACTURER);
+    //         new Characteristic::SerialNumber(TS_SERIALNUM);  
+    //         new Characteristic::Model(TS_MODEL);
+    //         new Characteristic::FirmwareRevision(HK_SKETCH_VER);
+    //         new Characteristic::Identify();
 
-        tempSensor = new TempSensorAccessory(&webSocket);
+    //     tempSensor = new TempSensorAccessory(&webSocket);
 
-    new SpanAccessory();
-        new Service::AccessoryInformation();
-            new Characteristic::Name(HP_NAME HP_UPSTAIRS_SERIALNUM);
-            new Characteristic::Manufacturer(HP_MANUFACTURER);
-            new Characteristic::SerialNumber(HP_UPSTAIRS_SERIALNUM);  
-            new Characteristic::Model(HP_UPSTAIRS_MODEL);
-            new Characteristic::FirmwareRevision(HK_SKETCH_VER);
-            new Characteristic::Identify();
+    // new SpanAccessory();
+    //     new Service::AccessoryInformation();
+    //         new Characteristic::Name(HP_NAME HP_UPSTAIRS_SERIALNUM);
+    //         new Characteristic::Manufacturer(HP_MANUFACTURER);
+    //         new Characteristic::SerialNumber(HP_UPSTAIRS_SERIALNUM);  
+    //         new Characteristic::Model(HP_UPSTAIRS_MODEL);
+    //         new Characteristic::FirmwareRevision(HK_SKETCH_VER);
+    //         new Characteristic::Identify();
 
-        upstairsHP = new HeatpumpAccessory(&webSocket, HP_UPSTAIRS_SERIALNUM); 
+    //     upstairsHP = new HeatpumpAccessory(&webSocket, HP_UPSTAIRS_SERIALNUM); 
 
-    new SpanAccessory();
-        new Service::AccessoryInformation();
-            new Characteristic::Name(HP_NAME HP_DOWNSTAIRS_SERIALNUM);
-            new Characteristic::Manufacturer(HP_MANUFACTURER);
-            new Characteristic::SerialNumber(HP_UPSTAIRS_SERIALNUM);  
-            new Characteristic::Model(HP_DOWNSTAIRS_MODEL);
-            new Characteristic::FirmwareRevision(HK_SKETCH_VER);
-            new Characteristic::Identify();
+    // new SpanAccessory();
+    //     new Service::AccessoryInformation();
+    //         new Characteristic::Name(HP_NAME HP_DOWNSTAIRS_SERIALNUM);
+    //         new Characteristic::Manufacturer(HP_MANUFACTURER);
+    //         new Characteristic::SerialNumber(HP_UPSTAIRS_SERIALNUM);  
+    //         new Characteristic::Model(HP_DOWNSTAIRS_MODEL);
+    //         new Characteristic::FirmwareRevision(HK_SKETCH_VER);
+    //         new Characteristic::Identify();
 
-        downstairsHP = new HeatpumpAccessory(&webSocket, HP_DOWNSTAIRS_SERIALNUM); 
+    //     downstairsHP = new HeatpumpAccessory(&webSocket, HP_DOWNSTAIRS_SERIALNUM); 
 
 
-    new SpanUserCommand('E', "<api> - Erase authorization data for linked APIs. API options are \"all\", \"SimpliSafe\", or \"MyQ\".", resetAPIs);
+    // new SpanUserCommand('E', "<api> - Erase authorization data for linked APIs. API options are \"all\", \"SimpliSafe\", or \"MyQ\".", resetAPIs);
 
     homeSpan.setWifiCallback([](){
         // finish setup after wifi connects
@@ -196,29 +205,29 @@ void setup()
             sl_printf(SHEETS_URL, "Homekit Hub", "Rebooting system...\n");
         #endif
         
-        // SimpliSafe
-        if (!ss->setup()) {
-            HK_ERROR_LINE("Error setting up SimpliSafe API.");
-        }
-        if (!ss->startListeningToEvents([](int eventId) {
-            security->listenToEvents(eventId);
-            lock->listenToEvents(eventId);
-        }, nullptr, nullptr)) {
-            HK_ERROR_LINE("Error setting up event callbacks for SimpliSafe.");
-        }
+        // // SimpliSafe
+        // if (!ss->setup()) {
+        //     HK_ERROR_LINE("Error setting up SimpliSafe API.");
+        // }
+        // if (!ss->startListeningToEvents([](int eventId) {
+        //     security->listenToEvents(eventId);
+        //     lock->listenToEvents(eventId);
+        // }, nullptr, nullptr)) {
+        //     HK_ERROR_LINE("Error setting up event callbacks for SimpliSafe.");
+        // }
 
-        if (!security->getSystemCurState()) { // set initial state
-            HK_ERROR_LINE("Error getting security system initial state.");
-        }
-        if (!lock->getLockCurState()) { // set initial state
-            HK_ERROR_LINE("Error getting lock initial state.");
-        }
+        // if (!security->getSystemCurState()) { // set initial state
+        //     HK_ERROR_LINE("Error getting security system initial state.");
+        // }
+        // if (!lock->getLockCurState()) { // set initial state
+        //     HK_ERROR_LINE("Error getting lock initial state.");
+        // }
 
-        // MyQ
-        if (!mq->setup()) {
-            HK_ERROR_LINE("Error setting up MyQ API.");
-        }
-        door->startPolling();
+        // // MyQ
+        // if (!mq->setup()) {
+        //     HK_ERROR_LINE("Error setting up MyQ API.");
+        // }
+        // door->startPolling();
 
         HK_LOG_LINE("Starting websocket for remote accessories.");
         webSocket.setAuthorization(WEBSOCKET_USER, WEBSOCKET_PASS);
@@ -240,8 +249,8 @@ void loop() {
 
     homeSpan.poll();
     if (wifiConnected) {
-        ss->loop();
-        mq->loop();
+        // ss->loop();
+        // mq->loop();
         webSocket.loop();
     }
 }

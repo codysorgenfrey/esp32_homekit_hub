@@ -33,7 +33,7 @@ struct WeMoSwitchAccessory : Service::Switch {
     String message;
     serializeJson(doc, message);
 
-    HK_VERB_LINE("Sending message to WeMo: %s", message);
+    HK_VERB_LINE("Sending message to WeMo: %s", message.c_str());
     return webSocket->broadcastTXT(message);
   }
 
@@ -46,24 +46,16 @@ struct WeMoSwitchAccessory : Service::Switch {
     String message;
     serializeJson(doc, message);
 
-    HK_VERB_LINE("Sending message to WeMo: %s", message);
+    HK_VERB_LINE("Sending message to WeMo: %s", message.c_str());
     webSocket->broadcastTXT(message);
   }
 
-  void handleMessage(u_int8_t *message) {
-    StaticJsonDocument<92> doc;
-    DeserializationError err = deserializeJson(doc, message);
-
-    if (err) {
-      HK_ERROR_LINE("Error deserializing message: %s", err.c_str());
-      respondToMessage(false);
-    }
-
-    if (doc['device'].as<const char *>() == WM_DEVICE_ID) {
-      if (doc['command'].as<const char *>() == WM_COMMAND_UPDATE_ON) {
+  void handleMessage(const JsonDocument &doc) {
+    if (strcmp(doc['device'].as<const char *>(), WM_DEVICE_ID) == 0) {
+      if (strcmp(doc['command'].as<const char *>(), WM_COMMAND_UPDATE_ON) == 0) {
         HK_LOG_LINE("Updating homekit from WeMo switch.");
         on->setVal(doc['payload'].as<bool>());
-        respondToMessage(true);
+        // respondToMessage(true);
       }
     }
   }

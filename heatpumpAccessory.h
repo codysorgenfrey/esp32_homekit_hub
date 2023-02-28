@@ -32,6 +32,10 @@
 #define SLATANGLE_ALLUP -90
 #define SLATANGLE_ALLDOWN 90
 
+#define HP_COMMAND_UPDATE_STATUS "update_status"
+#define HP_COMMAND_UPDATE_SETTINGS "update_settings"
+#define HP_COMMAND_REPLACE_SETTINGS "replace_settings"
+
 bool updateSettings = false;
 
 struct FanAccessory : Service::Fan {
@@ -276,31 +280,49 @@ struct HeatpumpAccessory : Service::HeaterCooler {
         return true;
     }
 
-    const char* handleMessage(uint8_t *message) {
-        DynamicJsonDocument doc(1024);
-        DeserializationError error = deserializeJson(doc, message);
-        if (error) {
-            HK_ERROR_LINE("Error deserializing heatpump message.");
-            return "Error";
-        }
-        
+    void respondToMessage(bool success) {
+      StaticJsonDocument<92> doc;
+      doc["device"] = serial;
+      doc["command"] = HUB_COMMAND_RESPONSE;
+      doc["payload"] = success ? HUB_RESPONSE_OK : HUB_RESPONSE_ERROR;
+
+      String message;
+      serializeJson(doc, message);
+
+      HK_VERB_LINE("Sending message to WeMo: %s", message.c_str());
+      webSocket->broadcastTXT(message);
+    }
+
+    void handleMessage(uint8_t *message) {
+      StaticJsonDocument<192> doc;
+      DeserializationError error = deserializeJson(doc, message);
+      if (error) {
+        HK_ERROR_LINE("Error deserializing heatpump message.");
+        respondToMessage(false);
+        return;
+      }   
+
+      if (doc['device'].as<const char *>() == serial) {
         HK_LOG_LINE("Updating Homekit from %s", serial);
-        HK_VERB_LINE("%s", doc.as<String>().c_str());   
-
-        String command = doc["command"].as<String>();
-        if (command == String("update_settings")) {
-            if (updateCurrentState(doc)) return "Success";
-        } else if (command == String("replace_settings")) {
-            if (updateTargetState(doc) && updateCurrentState(doc)) {
-                if (!initialized) initialized = true;
-                return "Success";
-            }
-        } else if (command == String("update_status")) {
-            if (updateStatus(doc)) return "Success";
+        HK_VERB_LINE("%s", doc.as<String>().c_str());
+        if (doc["command"].as<const char *>() == HP_COMMAND_UPDATE_SETTINGS) {
+          if(updateCurrentState(doc)) {
+            respondToMessage(true);
+          } else {
+            respondToMessage(false);
+          }
+        } else if (doc["command"].as<const char *>() == HP_COMMAND_REPLACE_SETTINGS) {
+          if (updateTargetState(doc) && updateCurrentState(doc)) {
+            if (!initialized) initialized = true;
+            respondToMessage(true);
+          } else {
+            respondToMessage(false);
+          }
+        } else if (doc["command"].as<const char *>() == HP_COMMAND_UPDATE_STATUS) {
+          if (updateStatus(doc)) respondToMessage(true);
+          else respondToMessage(false);
         }
-
-        HK_ERROR_LINE("Error handling heatpump message.");
-        return "Error";
+      }
     }
 };
 

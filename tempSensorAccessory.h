@@ -31,7 +31,7 @@ struct TempSensorAccessory : Service::TemperatureSensor {
       String message;
       serializeJson(doc, message);
 
-      HK_VERB_LINE("Sending message to Inkbird: %s", message);
+      HK_VERB_LINE("Sending message to Inkbird: %s", message.c_str());
       webSocket->broadcastTXT(message);
     }
 
