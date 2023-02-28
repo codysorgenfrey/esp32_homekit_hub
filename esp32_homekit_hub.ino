@@ -67,11 +67,8 @@ void webSocketEvent(uint8_t num, WStype_t type, uint8_t *payload, size_t length)
             HK_LOG_LINE("#%u says: %s", num, payload);
             if (strncmp((char *)payload, "{", 1) == 0) { // json payload
                 StaticJsonDocument<192> doc;
-                DeserializationError error = deserializeJson(doc, payload);
-                if (error) {
-                    HK_ERROR_LINE("deserializeJson() failed: %s", error.c_str());
-                    return;
-                }
+                DeserializationError err = deserializeJson(doc, payload);
+                if (err) HK_ERROR_LINE("deserializeJson() failed: %s", payload);
 
                 // tempSensor->handleMessage(payload);
                 mySwitch->handleMessage(doc);
