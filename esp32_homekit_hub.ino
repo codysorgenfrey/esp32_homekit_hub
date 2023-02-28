@@ -69,11 +69,12 @@ void webSocketEvent(uint8_t num, WStype_t type, uint8_t *payload, size_t length)
                 StaticJsonDocument<192> doc;
                 DeserializationError err = deserializeJson(doc, payload);
                 if (err) HK_ERROR_LINE("deserializeJson() failed: %s", payload);
-
-                // tempSensor->handleMessage(payload);
-                mySwitch->handleMessage(doc);
-                // upstairsHP->handleMessage(payload);
-                // downstairsHP->handleMessage(payload);
+                else {
+                    // tempSensor->handleMessage(payload);
+                    mySwitch->handleMessage(doc);
+                    // upstairsHP->handleMessage(payload);
+                    // downstairsHP->handleMessage(payload);
+                }
             }
             break;
         }
