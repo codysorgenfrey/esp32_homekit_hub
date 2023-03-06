@@ -17,10 +17,6 @@
 #define HK_UNIQUE_NAME HK_NAME "-" HK_SERIALNUM
 #define HK_SKETCH_VER "0.0.1"
 
-// Homekit remote Stuff
-#define HKR_RESPONSE_COMMAND "response"
-#define HKR_RESPONSE_TIMEOUT 5000 // 5 seconds
-
 // WeMo Stuff
 #define WM_MANUFACTURER "Belkin"
 #define WM_NAME "WeMo Smart Switch"
