@@ -3,13 +3,17 @@
 #define __TEMPERATURESENSORACCESSORY_H__
 
 #include "common.h"
+#include "remoteHomekitDevice.h"
 #include <HomeSpan.h>
+#include <WebSocketsServer.h>
 #include <ArduinoJson.h>
 
-struct TempSensorAccessory : Service::TemperatureSensor {
+struct RemoteTempSensor : Service::TemperatureSensor {};
+
+struct TempSensorAccessory : HomekitRemoteDevice, Service::TemperatureSensor {
     SpanCharacteristic *curTemp;
 
-    TempSensorAccessory() : Service::TemperatureSensor() {
+    TempSensorAccessory(WebSocketsServer *inWS) : HomekitRemoteDevice(inWS), Service::TemperatureSensor() {
         curTemp = new Characteristic::CurrentTemperature();
     }
 
@@ -17,17 +21,16 @@ struct TempSensorAccessory : Service::TemperatureSensor {
         return true;
     }
 
-    const char* handleMessage(const JsonDocument &doc) {
-        HK_LOG_LINE("Updating homekit from Inkbird temperature sensor.");
-        // only accept one message, update temp.
-        String command = doc["command"].as<String>();
-        if (command == String("update_temp")) {
+    void handleHKRCommand(const JsonDocument &doc) {
+        const char *command = doc["command"].as<const char *>();
+
+        if (strcmp(command, TS_COMMAND_UPDATE_TEMP) == 0) {
+            HK_LOG_LINE("Updating homekit from Inkbird temperature sensor.");
             curTemp->setVal(doc["payload"].as<float>());
-            return "Success";
+            return;
         }
 
-        HK_ERROR_LINE("Error handling temerature sensor message.");
-        return "Error";
+        HK_ERROR_LINE("Error handling temerature sensor command %s.", command);
     }
 };
 
