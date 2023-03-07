@@ -65,6 +65,7 @@ void webSocketEvent(uint8_t num, WStype_t type, uint8_t *payload, size_t length)
         }
         case WStype_TEXT: {
             HK_VERB_LINE("#%u says: %s", num, payload);
+            tempSensor->HKRWebsocketEvent(num, payload);
             if (strncmp((const char *)payload, "{", 1) == 0) {
                 // JSON message
                 StaticJsonDocument<192> doc;
@@ -75,9 +76,8 @@ void webSocketEvent(uint8_t num, WStype_t type, uint8_t *payload, size_t length)
                     return;
                 }
 
-                const char *device = doc[HKR_DEVICE].as<const char *>();
-                if (strcmp(device, TS_MODEL) == 0) tempSensor->HKRMessageRecieved(num, doc);
-                else if (strcmp(device, HP_UPSTAIRS_SERIALNUM) == 0) webSocket.sendTXT(num, upstairsHP->handleMessage(doc));
+                const char *device = doc[HKR_DEVICE];
+                if (strcmp(device, HP_UPSTAIRS_SERIALNUM) == 0) webSocket.sendTXT(num, upstairsHP->handleMessage(doc));
                 else if (strcmp(device, HP_DOWNSTAIRS_SERIALNUM) == 0) webSocket.sendTXT(num, downstairsHP->handleMessage(doc));
             }
             break;
@@ -94,8 +94,8 @@ void webSocketEvent(uint8_t num, WStype_t type, uint8_t *payload, size_t length)
 
 void setup()
 {
-    Serial.begin(115200);
     #if HK_DEBUG > HK_DEBUG_LEVEL_ERROR
+        Serial.begin(115200);
         while (!Serial) { ; }; // wait for serial
     #endif
     HK_LOG_LINE("Starting...");

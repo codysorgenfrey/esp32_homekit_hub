@@ -11,7 +11,7 @@
 struct TempSensorAccessory : HomekitRemoteDeviceServerSide, Service::TemperatureSensor {
     SpanCharacteristic *curTemp;
 
-    TempSensorAccessory(WebSocketsServer *inWS) : HomekitRemoteDeviceServerSide(inWS), Service::TemperatureSensor() {
+    TempSensorAccessory(WebSocketsServer *inWS) : HomekitRemoteDeviceServerSide(inWS, TS_MODEL), Service::TemperatureSensor() {
         curTemp = new Characteristic::CurrentTemperature();
     }
 
@@ -23,13 +23,12 @@ struct TempSensorAccessory : HomekitRemoteDeviceServerSide, Service::Temperature
         listenForHKRResponse();
     }
 
-    void handleHKRCommand(const JsonDocument &doc) {
-        const char *command = doc[HKR_COMMAND].as<const char *>();
+    void handleHKRCommand(const char *command, const JsonVariant &payload) {
         bool success = false;
 
         if (strcmp(command, TS_COMMAND_UPDATE_TEMP) == 0) {
             HK_LOG_LINE("Updating homekit from Inkbird temperature sensor.");
-            curTemp->setVal(doc[HKR_PAYLOAD].as<float>());
+            curTemp->setVal(payload.as<float>());
             success = true;
         }
 
@@ -39,12 +38,6 @@ struct TempSensorAccessory : HomekitRemoteDeviceServerSide, Service::Temperature
 
     void handleHKRError(HKR_ERROR err) {
         switch (err) {
-        case HKR_ERROR_CONNECTION_REFUSED:
-            HK_ERROR_LINE("%s: HKR refused connection.", TS_MODEL);
-            break;
-        case HKR_ERROR_DEVICE_NOT_REGISTERED:
-            HK_ERROR_LINE("%s: HKR device not registered.", TS_MODEL);
-            break;
         case HKR_ERROR_TIMEOUT:
             HK_ERROR_LINE("%s: HKR timeout waiting for response.", TS_MODEL);
             break;
@@ -53,6 +46,15 @@ struct TempSensorAccessory : HomekitRemoteDeviceServerSide, Service::Temperature
             break;
         case HKR_ERROR_WEBSOCKET_ERROR:
             HK_ERROR_LINE("%s: HKR websocket error.", TS_MODEL);
+            break;
+        case HKR_ERROR_CONNECTION_REFUSED:
+            HK_ERROR_LINE("%s: HKR refused connection.", TS_MODEL);
+            break;
+        case HKR_ERROR_DEVICE_NOT_REGISTERED:
+            HK_ERROR_LINE("%s: HKR device not registered.", TS_MODEL);
+            break;
+        case HKR_ERROR_JSON_DESERIALIZE:
+            HK_ERROR_LINE("%s: HKR json deserialize error.", TS_MODEL);
             break;
         default:
             HK_ERROR_LINE("%s: HKR unknown error: %i.", TS_MODEL, err);
