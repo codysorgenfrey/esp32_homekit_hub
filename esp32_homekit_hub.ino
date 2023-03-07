@@ -75,7 +75,7 @@ void webSocketEvent(uint8_t num, WStype_t type, uint8_t *payload, size_t length)
                     return;
                 }
 
-                const char *device = doc["device"].as<const char *>();
+                const char *device = doc[HKR_DEVICE].as<const char *>();
                 if (strcmp(device, TS_MODEL) == 0) tempSensor->HKRMessageRecieved(num, doc);
                 else if (strcmp(device, HP_UPSTAIRS_SERIALNUM) == 0) webSocket.sendTXT(num, upstairsHP->handleMessage(doc));
                 else if (strcmp(device, HP_DOWNSTAIRS_SERIALNUM) == 0) webSocket.sendTXT(num, downstairsHP->handleMessage(doc));

@@ -24,22 +24,40 @@ struct TempSensorAccessory : HomekitRemoteDeviceServerSide, Service::Temperature
     }
 
     void handleHKRCommand(const JsonDocument &doc) {
-        const char *command = doc["command"].as<const char *>();
+        const char *command = doc[HKR_COMMAND].as<const char *>();
         bool success = false;
 
         if (strcmp(command, TS_COMMAND_UPDATE_TEMP) == 0) {
             HK_LOG_LINE("Updating homekit from Inkbird temperature sensor.");
-            curTemp->setVal(doc["payload"].as<float>());
+            curTemp->setVal(doc[HKR_PAYLOAD].as<float>());
             success = true;
         }
 
-        StaticJsonDocument<92> resDoc;
-        resDoc["device"] = TS_MODEL;
-        resDoc["command"] = HKR_RESPONSE_COMMAND;
-        resDoc["payload"] = success;
-        sendHKRMessage(resDoc, false);
-
+        sendHKRResponse(success);
         if (!success) HK_ERROR_LINE("Error handling temerature sensor command %s.", command);
+    }
+
+    void handleHKRError(HKR_ERROR err) {
+        switch (err) {
+        case HKR_ERROR_CONNECTION_REFUSED:
+            HK_ERROR_LINE("%s: HKR refused connection.", TS_MODEL);
+            break;
+        case HKR_ERROR_DEVICE_NOT_REGISTERED:
+            HK_ERROR_LINE("%s: HKR device not registered.", TS_MODEL);
+            break;
+        case HKR_ERROR_TIMEOUT:
+            HK_ERROR_LINE("%s: HKR timeout waiting for response.", TS_MODEL);
+            break;
+        case HKR_ERROR_UNEXPECTED_RESPONSE:
+            HK_ERROR_LINE("%s: HKR response recieved to no command.", TS_MODEL);
+            break;
+        case HKR_ERROR_WEBSOCKET_ERROR:
+            HK_ERROR_LINE("%s: HKR websocket error.", TS_MODEL);
+            break;
+        default:
+            HK_ERROR_LINE("%s: HKR unknown error: %i.", TS_MODEL, err);
+            break;
+        }
     }
 };
 
