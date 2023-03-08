@@ -65,7 +65,7 @@ void webSocketEvent(uint8_t num, WStype_t type, uint8_t *payload, size_t length)
         }
         case WStype_TEXT: {
             HK_VERB_LINE("#%u says: %s", num, payload);
-            tempSensor->HKRWebsocketEvent(num, payload);
+            // tempSensor->HKRWebsocketEvent(num, payload);
             if (strncmp((const char *)payload, "{", 1) == 0) {
                 // JSON message
                 StaticJsonDocument<192> doc;
@@ -77,7 +77,8 @@ void webSocketEvent(uint8_t num, WStype_t type, uint8_t *payload, size_t length)
                 }
 
                 const char *device = doc[HKR_DEVICE];
-                if (strcmp(device, HP_UPSTAIRS_SERIALNUM) == 0) webSocket.sendTXT(num, upstairsHP->handleMessage(doc));
+                if (strcmp(device, TS_MODEL) == 0) tempSensor->receiveHKRMessage(num, doc);
+                else if (strcmp(device, HP_UPSTAIRS_SERIALNUM) == 0) webSocket.sendTXT(num, upstairsHP->handleMessage(doc));
                 else if (strcmp(device, HP_DOWNSTAIRS_SERIALNUM) == 0) webSocket.sendTXT(num, downstairsHP->handleMessage(doc));
             }
             break;
